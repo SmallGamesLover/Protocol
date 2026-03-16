@@ -2,7 +2,7 @@
 > Based on Implementation Plan v2.0.0
 > Tasks are ordered chronologically. Complete each stage top-to-bottom before moving to the next.
 
-- [ ] Phase 0: Scene setup and stubs
+- [x] Phase 0: Scene setup and stubs
   - [x] Create a new scene `TestMovement` with a flat floor GameObject (sprite + `BoxCollider2D`, layer `Ground`)
   - [x] Add 3–4 solid platform GameObjects at different heights (sprite + `BoxCollider2D`, layer `Ground`); no one-way platforms yet
   - [x] Add a `Camera` with `Orthographic` projection, fixed position, covering the entire test area
@@ -12,24 +12,24 @@
   - [x] Create `PlayerInputReader` MonoBehaviour: uses `UnityEngine.InputSystem` (NOT legacy `UnityEngine.Input`). Reads `Keyboard.current` directly — no `.inputactions` asset, no `PlayerInput` component. Calls `_mover.Move()` with A/D keys. Leave `Jump()` and `Dodge()` calls commented out until Phases 3 and 5
   - [x] Attach both `CharacterMover2D` and `PlayerInputReader` to the player GameObject. Verify the project compiles and runs without errors
 
-- [ ] Phase 1: FSM infrastructure (pure C#, no Unity dependencies)
-  - [ ] Create `IState` interface with methods: `OnEnter()`, `OnExit()`
-  - [ ] Create `ITickable` interface with method: `Tick(float deltaTime)`. It does NOT inherit from `IState` — it is a standalone interface
-  - [ ] Create `StateMachine<TState>` generic class with constraint `where TState : class, IState`
-  - [ ] Implement `CurrentState` as a public read-only property
-  - [ ] Implement `SetInitialState(TState state)` — stores the state and calls `state.OnEnter()`
-  - [ ] Implement private `Transition` struct with fields: `From` (TState), `To` (TState), `Condition` (Func\<bool\>)
-  - [ ] Implement `AddTransition(TState from, TState to, Func<bool> condition)` — adds to `List<Transition>`
-  - [ ] Implement `EvaluateTransitions()` — iterates the list, finds the first transition where `From == CurrentState` and `Condition()` is true, calls `CurrentState.OnExit()`, sets new state, calls `OnEnter()`, returns immediately after first match
-  - [ ] StateMachine has NO `Tick` method — ticking is the caller's responsibility
-  - [ ] Write a simple verification: create two stub `IState` classes, register one transition, call `EvaluateTransitions()`, confirm that state switched and `OnEnter()`/`OnExit()` were called
+- [x] Phase 1: FSM infrastructure (pure C#, no Unity dependencies)
+  - [x] Create `IState` interface with methods: `OnEnter()`, `OnExit()`
+  - [x] Create `ITickable` interface with method: `Tick(float deltaTime)`. It does NOT inherit from `IState` — it is a standalone interface
+  - [x] Create `StateMachine<TState>` generic class with constraint `where TState : class, IState`
+  - [x] Implement `CurrentState` as a public read-only property
+  - [x] Implement `SetInitialState(TState state)` — stores the state and calls `state.OnEnter()`
+  - [x] Implement private `Transition` struct with fields: `From` (TState), `To` (TState), `Condition` (Func\<bool\>)
+  - [x] Implement `AddTransition(TState from, TState to, Func<bool> condition)` — adds to `List<Transition>`
+  - [x] Implement `EvaluateTransitions()` — iterates the list, finds the first transition where `From == CurrentState` and `Condition()` is true, calls `CurrentState.OnExit()`, sets new state, calls `OnEnter()`, returns immediately after first match
+  - [x] StateMachine has NO `Tick` method — ticking is the caller's responsibility
+  - [x] Write a simple verification: create two stub `IState` classes, register one transition, call `EvaluateTransitions()`, confirm that state switched and `OnEnter()`/`OnExit()` were called
 
 - [ ] Phase 2: Horizontal movement and ground check
-  - [ ] Create `WalkingConfig` ScriptableObject with serialized fields: `WalkSpeed` (float), `RunSpeed` (float), `Acceleration` (float), `Deceleration` (float)
-  - [ ] Create a `WalkingConfig` asset instance in the project with placeholder values (e.g., walk 5, run 8, accel 50, decel 70)
-  - [ ] Implement ground check in `CharacterMover2D`: `Physics2D.OverlapBox` slightly below the character's collider bottom edge. Expose `GroundCheckSize` (Vector2), `GroundCheckOffset` (Vector2), `GroundLayerMask` (LayerMask) as `[SerializeField]` fields
-  - [ ] Add `OnDrawGizmos()` to `CharacterMover2D` that draws the ground check box in Scene View (green when grounded, red when airborne)
-  - [ ] Expose `IsGrounded` as a public read-only property on `CharacterMover2D`
+  - [x] Create `WalkingConfig` ScriptableObject with serialized fields: `WalkSpeed` (float), `RunSpeed` (float), `Acceleration` (float), `Deceleration` (float)
+  - [x] Create a `WalkingConfig` asset instance in the project with placeholder values (e.g., walk 5, run 8, accel 50, decel 70)
+  - [x] Implement ground check in `CharacterMover2D`: `Physics2D.OverlapBox` slightly below the character's collider bottom edge. Expose `GroundCheckSize` (Vector2), `GroundCheckOffset` (Vector2), `GroundLayerMask` (LayerMask) as `[SerializeField]` fields
+  - [x] Add `OnDrawGizmos()` to `CharacterMover2D` that draws the ground check box in Scene View (green when grounded, red when airborne)
+  - [x] Expose `IsGrounded` as a public read-only property on `CharacterMover2D`
   - [ ] Create `WalkingState` class implementing `IState, ITickable`. It owns a `StateMachine<IState>` for sub-states. Constructor receives `WalkingConfig` and a shared context/reference to `CharacterMover2D`
   - [ ] Create `IdleSubState` implementing `IState, ITickable` — applies deceleration to `velocity.x` toward zero each `Tick`
   - [ ] Create `WalkSubState` implementing `IState, ITickable` — accelerates `velocity.x` toward `WalkSpeed` using `Acceleration`, decelerates using `Deceleration` when input direction opposes velocity

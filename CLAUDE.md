@@ -4,11 +4,6 @@
 Project for developing 2d indie game. Main genre: side-scroller shooter.
 Engine: Unity 6.3 | 2D URP | Language: C# | IDE: VS Code
 
-## Architecture
-- 
--
--
-
 ## Key Directories
 - `Assets/_Project/` folder is the top-level container for all project-owned content.
 - `Docs/` folder contains all design and planning documents.
@@ -26,6 +21,13 @@ Engine: Unity 6.3 | 2D URP | Language: C# | IDE: VS Code
 - Try to follow SOLID principles (that includes preferring interfaces (ITickable, IState) over abstract classes when possible)
 - XML doc comments on all public API methods
 - No magic numbers — use named constants or ScriptableObjects
+
+## Folder Placement Rules
+- `Runtime/` — gameplay code that runs only in the player build (MonoBehaviours, states, configs)
+- `Shared/` — pure C# code reusable across Runtime AND Editor (design patterns, interfaces, generic utilities). No Unity engine dependencies. Example: `Shared/FSM/` contains `IState`, `ITickable`, `StateMachine<T>`
+- `Editor/` — Unity Editor tooling only (custom inspectors, drawers, wizards)
+- `Tests/` — unit and integration tests, mirroring the assembly they cover (`Tests/Shared/`, `Tests/Runtime/`)
+- When in doubt whether code belongs in `Runtime/` or `Shared/`: if it has no `using UnityEngine` and could be used in an Editor script, it goes in `Shared/`
 
 ## Namespace Convention
 Namespace must mirror the folder path under `Scripts/`.
