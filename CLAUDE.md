@@ -29,8 +29,8 @@ Engine: Unity 6.3 | 2D URP | Language: C# | IDE: VS Code
 
 ## Namespace Convention
 Namespace must mirror the folder path under `Scripts/`.
-Pattern: `SimpleGamesLover.Protocol.{Assembly}.{Subfolder}`.
-Example: a file at `Scripts/SimpleGamesLover/Protocol/Runtime/Movement/CharacterMover2D.cs` → namespace `SimpleGamesLover.Protocol.Runtime.Movement`.
+Pattern: `SGL.Protocol.{Assembly}.{Subfolder}`.
+Example: a file at `Scripts/SGL/Protocol/Runtime/Movement/CharacterMover2D.cs` → namespace `SGL.Protocol.Runtime.Movement`.
 Do not hardcode namespaces in task descriptions — derive them from the file's folder location.
 
 ## Unity Conventions

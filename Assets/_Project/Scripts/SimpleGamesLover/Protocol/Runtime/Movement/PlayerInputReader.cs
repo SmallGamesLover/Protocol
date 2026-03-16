@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-namespace SimpleGamesLover.Protocol.Runtime.Movement
+namespace SGL.Protocol.Runtime.Movement
 {
     /// <summary>
     /// Reads raw keyboard input and forwards movement commands to CharacterMover2D.

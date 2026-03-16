@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace SimpleGamesLover.Protocol.Runtime.Movement
+namespace SGL.Protocol.Runtime.Movement
 {
     /// <summary>
     /// Controls character movement via a hierarchical FSM.
