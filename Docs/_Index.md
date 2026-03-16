@@ -4,16 +4,11 @@
 Current snapshot: @Architecture.md
 
 ## Active Feature
-- GDD:
-- Plan:
-- Tasks:
-
-<!-- Example:
-- GDD: @Filepath.md
-- Plan: @Filepath.md
-- Tasks: @Filepath.md
--->
+**CharacterMover2D**
+- GDD: @Docs/Features/CharacterMover2D/GDD_CharacterMover2D_EN.md
+- Plan: @Docs/Features/CharacterMover2D/CharacterMover2D_ImplementationPlan_EN.md
+- Tasks: @Docs/Features/CharacterMover2D/CharacterMover2D_Tasks.md
 
 ## All Features
 
-**CharacterMover2D** — @Docs/Features/CharacterMover2D (Planned)
+**CharacterMover2D** — @Docs/Features/CharacterMover2D (Active)
