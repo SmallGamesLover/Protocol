@@ -1,0 +1,21 @@
+# Unity generated (already in .gitignore, but to clearly state for Claude)
+Library/
+Temp/
+Obj/
+Build/
+Builds/
+Logs/
+
+# Large binary assets that Claude cannot read
+*.fbx
+*.png
+*.jpg
+*.wav
+*.mp3
+*.ogg
+*.unity
+*.prefab
+*.asset
+
+# Packages (external - do not touch)
+Packages/
