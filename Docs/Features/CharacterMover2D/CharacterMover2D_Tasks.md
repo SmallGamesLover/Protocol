@@ -3,14 +3,14 @@
 > Tasks are ordered chronologically. Complete each stage top-to-bottom before moving to the next.
 
 - [ ] Phase 0: Scene setup and stubs
-  - [ ] Create a new scene `TestMovement` with a flat floor GameObject (sprite + `BoxCollider2D`, layer `Ground`)
-  - [ ] Add 3–4 solid platform GameObjects at different heights (sprite + `BoxCollider2D`, layer `Ground`); no one-way platforms yet
-  - [ ] Add a `Camera` with `Orthographic` projection, fixed position, covering the entire test area
-  - [ ] Set up Physics2D layers in Project Settings: `Player`, `Ground`, `Platform`
-  - [ ] Create player GameObject: colored rectangle sprite, `Kinematic Rigidbody2D` (Discrete collision detection), `BoxCollider2D` fitted to sprite, layer `Player`
-  - [ ] Create `CharacterMover2D` MonoBehaviour stub with empty public methods: `Move(Vector2 direction)`, `Jump()`, `Dodge(Vector2 direction)`. No logic inside — just empty bodies so the project compiles
-  - [ ] Create `PlayerInputReader` MonoBehaviour: uses `UnityEngine.InputSystem` (NOT legacy `UnityEngine.Input`). Reads `Keyboard.current` directly — no `.inputactions` asset, no `PlayerInput` component. Calls `_mover.Move()` with A/D keys. Leave `Jump()` and `Dodge()` calls commented out until Phases 3 and 5
-  - [ ] Attach both `CharacterMover2D` and `PlayerInputReader` to the player GameObject. Verify the project compiles and runs without errors
+  - [x] Create a new scene `TestMovement` with a flat floor GameObject (sprite + `BoxCollider2D`, layer `Ground`)
+  - [x] Add 3–4 solid platform GameObjects at different heights (sprite + `BoxCollider2D`, layer `Ground`); no one-way platforms yet
+  - [x] Add a `Camera` with `Orthographic` projection, fixed position, covering the entire test area
+  - [x] Set up Physics2D layers in Project Settings: `Player`, `Ground`, `Platform`
+  - [x] Create player GameObject: colored rectangle sprite, `Kinematic Rigidbody2D` (Discrete collision detection), `BoxCollider2D` fitted to sprite, layer `Player`
+  - [x] Create `CharacterMover2D` MonoBehaviour stub with empty public methods: `Move(Vector2 direction)`, `Jump()`, `Dodge(Vector2 direction)`. No logic inside — just empty bodies so the project compiles
+  - [x] Create `PlayerInputReader` MonoBehaviour: uses `UnityEngine.InputSystem` (NOT legacy `UnityEngine.Input`). Reads `Keyboard.current` directly — no `.inputactions` asset, no `PlayerInput` component. Calls `_mover.Move()` with A/D keys. Leave `Jump()` and `Dodge()` calls commented out until Phases 3 and 5
+  - [x] Attach both `CharacterMover2D` and `PlayerInputReader` to the player GameObject. Verify the project compiles and runs without errors
 
 - [ ] Phase 1: FSM infrastructure (pure C#, no Unity dependencies)
   - [ ] Create `IState` interface with methods: `OnEnter()`, `OnExit()`
