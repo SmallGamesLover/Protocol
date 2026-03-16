@@ -1,21 +1,98 @@
-# Unity generated (already in .gitignore, but to clearly state for Claude)
+# ============================================
+# Unity Project — .claudeignore
+# ============================================
+
+# ----- Unity generated folders -----
 Library/
 Temp/
 Obj/
 Build/
 Builds/
 Logs/
+UserSettings/
+MemoryCaptures/
+Recordings/
 
-# Large binary assets that Claude cannot read
-*.fbx
+# ----- Generated project files -----
+*.csproj
+*.sln
+
+# ----- Packages (keep manifests, ignore the rest) -----
+Packages/com.*/
+!Packages/manifest.json
+!Packages/packages-lock.json
+
+# ----- Meta files (GUID + import settings, no useful context) -----
+*.meta
+
+# ----- Binary textures / images -----
 *.png
 *.jpg
+*.jpeg
+*.psd
+*.tga
+*.exr
+*.hdr
+*.tif
+*.tiff
+*.gif
+*.bmp
+*.svg
+
+# ----- 3D models / animations -----
+*.fbx
+*.obj
+*.blend
+*.dae
+*.3ds
+*.max
+
+# ----- Audio -----
 *.wav
 *.mp3
 *.ogg
+*.aiff
+*.flac
+
+# ----- Video -----
+*.mp4
+*.webm
+*.mov
+
+# ----- Fonts -----
+*.ttf
+*.otf
+*.woff
+*.woff2
+
+# ----- Unity serialized assets (large YAML, low signal) -----
 *.unity
 *.prefab
 *.asset
+*.lighting
+*.unitypackage
 
-# Packages (external - do not touch)
-Packages/
+# ----- Native plugins / compiled binaries -----
+*.dll
+*.so
+*.dylib
+*.a
+*.bundle
+
+# ----- Third-party / Asset Store plugins -----
+# Uncomment or adjust to match your project structure:
+# Assets/Plugins/
+# Assets/ThirdParty/
+# Assets/TextMesh Pro/
+
+# ----- OS junk -----
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ----- IDE / editor folders -----
+.vs/
+.vscode/
+.idea/
+*.suo
+*.user
