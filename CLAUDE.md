@@ -15,9 +15,9 @@ Engine: Unity 6.3 | 2D URP | Language: C# | IDE: VS Code
 - `Docs/_GDD.md` file contains the main GDD document for the entire project.
 - `Docs/_Index.md` file contains the current working status of the project. Here you can see what feature we are currently building.
 - `Docs/Architecture.md` file contains important core information about the project architecture.
-- `Docs/Features/<FeatureName>/GDD.md` file contains the GDD document for a feature.
-- `Docs/Features/<FeatureName>/Plan.md` file contains the implementation plan for a feature.
-- `Docs/Features/<FeatureName>/Tasks.md` file contains specific small tasks to complete when implementing a feature.
+- `Docs/Features/<FeatureName>/*GDD*.md` file contains the GDD document for a feature.
+- `Docs/Features/<FeatureName>/*Plan*.md` file contains the implementation plan for a feature.
+- `Docs/Features/<FeatureName>/*Tasks*.md` file contains specific small tasks to complete when implementing a feature.
 - `Docs/Features/<FeatureName>/Notes.md` file contains notes about a feature's GDD or implementation. Here you can write all the edits made along the way. Also feel free to write anything you think is worth noting: concerns about the current implementation, suggestions, comments, etc.
 
 ## Code Style (C#)
