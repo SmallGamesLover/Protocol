@@ -167,8 +167,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: SGL.Protocol.Runtime::TestMover
   Speed: 8
-  SkinWidth: 0.015
-  MaxSlideIterations: 3
   CollisionLayers:
     serializedVersion: 2
     m_Bits: 192
@@ -927,6 +925,7 @@ GameObject:
   - component: {fileID: 1809957638}
   - component: {fileID: 1809957637}
   - component: {fileID: 1809957639}
+  - component: {fileID: 1809957640}
   m_Layer: 3
   m_Name: Player
   m_TagString: Untagged
@@ -1032,16 +1031,28 @@ MonoBehaviour:
   m_GameObject: {fileID: 1809957635}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d5cfb72aa0e3d4c49939a51039b14753, type: 3}
+  m_Script: {fileID: 11500000, guid: 506bc2a70336e2942957d82b3a9337f3, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: SGL.Protocol.Runtime::TestMover
-  Speed: 8
-  SkinWidth: 0.015
-  MaxSlideIterations: 3
-  CollisionLayers:
+  m_EditorClassIdentifier: SGL.Protocol.Runtime::SGL.Protocol.Runtime.Movement.CharacterMover2D
+  _walkingConfig: {fileID: 11400000, guid: 2e03b2bee536a6745b1fbba348ad6426, type: 2}
+  GroundCheckSize: {x: 0.9, y: 0.05}
+  GroundCheckOffset: {x: 0, y: -0.8}
+  GroundLayerMask:
     serializedVersion: 2
     m_Bits: 192
-  DebugVisualScale: 0.5
+--- !u!114 &1809957640
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1809957635}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 32423282c4f67bf4793411221357ec4d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: SGL.Protocol.Runtime::SGL.Protocol.Runtime.Movement.PlayerInputReader
+  _mover: {fileID: 1809957639}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

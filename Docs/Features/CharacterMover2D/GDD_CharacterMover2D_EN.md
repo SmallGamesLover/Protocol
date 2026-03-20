@@ -187,6 +187,6 @@ A utility class responsible for one thing: resolving movement collisions via a r
 **Usage:**
 ```csharp
 // CharacterMover2D.ApplyMovement():
-Vector2 displacement = _collisionResolver.CollideAndSlide(Velocity * fixedDeltaTime, _contactFilter);
+Vector2 displacement = _collisionResolver.CollideAndSlide(Velocity * deltaTime, _contactFilter);
 _rigidbody.MovePosition(_rigidbody.position + displacement);
 ```

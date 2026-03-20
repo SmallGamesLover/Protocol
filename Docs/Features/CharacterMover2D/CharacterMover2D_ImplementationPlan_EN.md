@@ -112,7 +112,7 @@ At this stage the MonoBehaviour `CharacterMover2D` itself is created with public
 - Initialize a `ContactFilter2D` in `Awake()`: `useLayerMask = true`, assign `GroundLayerMask`. This filter is shared between the ground check and the resolver
 - Replace the raw `velocity * deltaTime` application in `FixedUpdate` with:
   ```csharp
-  Vector2 displacement = _collisionResolver.CollideAndSlide(Velocity * fixedDeltaTime, _contactFilter);
+  Vector2 displacement = _collisionResolver.CollideAndSlide(Velocity * deltaTime, _contactFilter);
   _rigidbody.MovePosition(_rigidbody.position + displacement);
   ```
 - No manual sinking fix or multi-pass casts needed — the recursive algorithm handles corner wedges and surface slides internally
