@@ -19,6 +19,8 @@ namespace SGL.Protocol.Runtime.Movement
 
         private Rigidbody2D _rigidbody;
         private StateMachine<IState> _topFsm;
+        private ContactFilter2D _contactFilter;
+        private CollisionSlideResolver2D _collisionResolver;
 
         /// <summary>True when the character is standing on ground or a platform.</summary>
         public bool IsGrounded { get; private set; }
@@ -29,9 +31,15 @@ namespace SGL.Protocol.Runtime.Movement
         /// <summary>Horizontal axis input in the range [-1, 1]. Set by Move().</summary>
         public float HorizontalInput { get; private set; }
 
+        /// <summary>True while the run button (Shift) is held. Set by PlayerInputReader or AI.</summary>
+        public bool IsRunRequested { get; set; }
+
         private void Awake()
         {
             _rigidbody = GetComponent<Rigidbody2D>();
+
+            _contactFilter = new ContactFilter2D { useLayerMask = true, layerMask = GroundLayerMask };
+            _collisionResolver = new CollisionSlideResolver2D(_rigidbody);
 
             var walkingState = new WalkingState(this, _walkingConfig);
             _topFsm = new StateMachine<IState>();
@@ -62,7 +70,13 @@ namespace SGL.Protocol.Runtime.Movement
             IsGrounded = CheckGround();
             _topFsm.EvaluateTransitions();
             (_topFsm.CurrentState as ITickable)?.Tick(Time.fixedDeltaTime);
-            _rigidbody.MovePosition(_rigidbody.position + Velocity * Time.fixedDeltaTime);
+            ApplyMovement(Time.fixedDeltaTime);
+        }
+
+        private void ApplyMovement(float deltaTime)
+        {
+            Vector2 displacement = _collisionResolver.CollideAndSlide(Velocity * deltaTime, _contactFilter);
+            _rigidbody.MovePosition(_rigidbody.position + displacement);
         }
 
         private bool CheckGround()

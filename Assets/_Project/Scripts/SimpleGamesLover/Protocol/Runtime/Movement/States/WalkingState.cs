@@ -4,7 +4,7 @@ namespace SGL.Protocol.Runtime.Movement.States
 {
     /// <summary>
     /// Top-level state: covers all ground and airborne movement.
-    /// Owns an internal sub-state FSM (Idle / Walk — Run / Jump / Fall added in later phases).
+    /// Owns an internal sub-state FSM (Idle / Walk / Run — Jump / Fall added in Phase 3).
     /// </summary>
     public class WalkingState : IState, ITickable
     {
@@ -13,6 +13,7 @@ namespace SGL.Protocol.Runtime.Movement.States
 
         private readonly IdleSubState _idle;
         private readonly WalkSubState _walk;
+        private readonly RunSubState _run;
 
         public WalkingState(CharacterMover2D mover, WalkingConfig config)
         {
@@ -20,19 +21,30 @@ namespace SGL.Protocol.Runtime.Movement.States
 
             _idle = new IdleSubState(mover, config);
             _walk = new WalkSubState(mover, config);
+            _run  = new RunSubState(mover, config);
 
-            // Task 27: Idle ↔ Walk transitions based on horizontal input.
-            _subFsm.AddTransition(_idle, _walk, () => _mover.HorizontalInput != 0f);
+            // Idle ↔ Walk
+            _subFsm.AddTransition(_idle, _walk, () => _mover.HorizontalInput != 0f && !_mover.IsRunRequested);
             _subFsm.AddTransition(_walk, _idle, () => _mover.HorizontalInput == 0f);
+
+            // Walk ↔ Run
+            _subFsm.AddTransition(_walk, _run, () => _mover.IsRunRequested && _mover.HorizontalInput != 0f);
+            _subFsm.AddTransition(_run,  _walk, () => !_mover.IsRunRequested && _mover.HorizontalInput != 0f);
+
+            // Idle ← Run (Shift released + input dropped while running)
+            _subFsm.AddTransition(_run, _idle, () => _mover.HorizontalInput == 0f);
+
+            // Idle → Run (direct: was idle, Shift held, input pressed)
+            _subFsm.AddTransition(_idle, _run, () => _mover.HorizontalInput != 0f && _mover.IsRunRequested);
         }
 
-        /// <summary>Task 28: Enters the correct sub-state based on current conditions.</summary>
+        /// <summary>Enters the correct sub-state based on current conditions.</summary>
         public void OnEnter() => ResolveSubState();
 
-        /// <summary>Task 30: Exits the active sub-state cleanly.</summary>
+        /// <summary>Exits the active sub-state cleanly.</summary>
         public void OnExit() => _subFsm.CurrentState.OnExit();
 
-        /// <summary>Task 29: Evaluates sub-state transitions, then ticks the active sub-state.</summary>
+        /// <summary>Evaluates sub-state transitions, then ticks the active sub-state.</summary>
         public void Tick(float deltaTime)
         {
             _subFsm.EvaluateTransitions();
@@ -45,7 +57,15 @@ namespace SGL.Protocol.Runtime.Movement.States
         /// </summary>
         private void ResolveSubState()
         {
-            IState initial = _mover.HorizontalInput != 0f ? (IState)_walk : _idle;
+            IState initial;
+
+            if (_mover.HorizontalInput != 0f && _mover.IsRunRequested)
+                initial = _run;
+            else if (_mover.HorizontalInput != 0f)
+                initial = _walk;
+            else
+                initial = _idle;
+
             _subFsm.SetInitialState(initial);
         }
     }

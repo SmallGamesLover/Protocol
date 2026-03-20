@@ -21,6 +21,8 @@ namespace SGL.Protocol.Runtime.Movement
             if (keyboard.dKey.isPressed || keyboard.rightArrowKey.isPressed) horizontal += 1f;
             if (keyboard.aKey.isPressed || keyboard.leftArrowKey.isPressed) horizontal -= 1f;
 
+            _mover.IsRunRequested = keyboard.leftShiftKey.isPressed || keyboard.rightShiftKey.isPressed;
+
             Vector2 direction = new Vector2(horizontal, 0f);
             _mover.Move(direction);
 

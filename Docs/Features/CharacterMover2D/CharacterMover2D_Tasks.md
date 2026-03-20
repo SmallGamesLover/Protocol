@@ -38,12 +38,12 @@
   - [x] 29. Implement `WalkingState.Tick(float deltaTime)` — calls `_subFsm.EvaluateTransitions()`, then ticks the current sub-state via `ITickable` cast
   - [x] 30. Implement `WalkingState.OnExit()` — calls `_subFsm.CurrentState.OnExit()`
   - [x] 31. Wire up `CharacterMover2D`: create top-level `StateMachine<IState>`, add `WalkingState` as the only state. In `FixedUpdate()`: run ground check, call `_topFsm.EvaluateTransitions()`, tick current state via `ITickable` cast, apply velocity via `Rigidbody2D.MovePosition(rb.position + velocity * deltaTime)`
-  - [ ] 32. Create `RunSubState` implementing `IState, ITickable` — same as WalkSubState but accelerates toward `RunSpeed`
-  - [ ] 33. Register transitions: `Walk→Run` when Shift held AND horizontal input != 0, `Run→Walk` when Shift released, `Run→Idle` when horizontal input == 0
-  - [ ] 34. Update `ResolveSubState()` to account for Run (Shift held + input → Run)
-  - [ ] 35. In `CharacterMover2D.Awake()`: initialize a `ContactFilter2D` field (`_contactFilter`) with `useLayerMask = true` and `GroundLayerMask` assigned. Instantiate `CollisionSlideResolver2D` as a private field `_collisionResolver`, passing `_rigidbody` to its constructor
-  - [ ] 36. Replace the raw `MovePosition(rb.position + velocity * deltaTime)` call with an `ApplyMovement(float deltaTime)` private method: compute `displacement = _collisionResolver.CollideAndSlide(Velocity * deltaTime, _contactFilter)`, then call `_rigidbody.MovePosition(_rigidbody.position + displacement)`
-  - [ ] 37. Uncomment `Move()` call in `PlayerInputReader`. Verify: character walks left/right, runs with Shift, decelerates to stop, slides along walls, ground check gizmo is visible
+  - [x] 32. Create `RunSubState` implementing `IState, ITickable` — same as WalkSubState but accelerates toward `RunSpeed`
+  - [x] 33. Register transitions: `Walk→Run` when Shift held AND horizontal input != 0, `Run→Walk` when Shift released, `Run→Idle` when horizontal input == 0
+  - [x] 34. Update `ResolveSubState()` to account for Run (Shift held + input → Run)
+  - [x] 35. In `CharacterMover2D.Awake()`: initialize a `ContactFilter2D` field (`_contactFilter`) with `useLayerMask = true` and `GroundLayerMask` assigned. Instantiate `CollisionSlideResolver2D` as a private field `_collisionResolver`, passing `_rigidbody` to its constructor
+  - [x] 36. Replace the raw `MovePosition(rb.position + velocity * deltaTime)` call with an `ApplyMovement(float deltaTime)` private method: compute `displacement = _collisionResolver.CollideAndSlide(Velocity * deltaTime, _contactFilter)`, then call `_rigidbody.MovePosition(_rigidbody.position + displacement)`
+  - [x] 37. Uncomment `Move()` call in `PlayerInputReader`. Verify: character walks left/right, runs with Shift, decelerates to stop, slides along walls, ground check gizmo is visible
 
 - [ ] Phase 3: Jump and fall
   - [ ] 38. Add serialized fields to `WalkingConfig`: `JumpHeight` (float), `TimeToApex` (float), `TimeToDescent` (float), `LowJumpMultiplier` (float), `MaxFallSpeed` (float), `CoyoteTime` (float), `JumpBufferTime` (float)
