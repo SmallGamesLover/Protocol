@@ -104,9 +104,18 @@ At this stage the MonoBehaviour `CharacterMover2D` itself is created with public
 - Horizontal input + Shift. Accelerates toward `runSpeed`
 - Transitions: Walk↔Run on Shift hold/release, Run→Idle when input is absent
 
-### 2.6 CollisionSlideResolver
-- Utility class: takes a movement vector + collision surface normal, returns a corrected slide vector
-- Connect to horizontal movement — character does not pass through walls
+### 2.6 Collision Handling — CollisionSlideResolver2D Integration
+
+`CollisionSlideResolver2D` is already implemented and available. This step wires it into `CharacterMover2D`.
+
+- Instantiate `CollisionSlideResolver2D` in `Awake()`, passing `_rigidbody` to its constructor. Store as `_collisionResolver`
+- Initialize a `ContactFilter2D` in `Awake()`: `useLayerMask = true`, assign `GroundLayerMask`. This filter is shared between the ground check and the resolver
+- Replace the raw `velocity * deltaTime` application in `FixedUpdate` with:
+  ```csharp
+  Vector2 displacement = _collisionResolver.CollideAndSlide(Velocity * fixedDeltaTime, _contactFilter);
+  _rigidbody.MovePosition(_rigidbody.position + displacement);
+  ```
+- No manual sinking fix or multi-pass casts needed — the recursive algorithm handles corner wedges and surface slides internally
 
 ### 2.7 Verification
 - Character moves left-right with acceleration/deceleration
@@ -149,11 +158,7 @@ At this stage the MonoBehaviour `CharacterMover2D` itself is created with public
 - If the character lands within the timer window — jump executes automatically
 - Implementation: `FallSubState` checks the buffer on landing before transitioning to Idle/Walk
 
-### 3.6 CollisionSlideResolver — Vertical Collisions
-- Extend handling: on ceiling collision `velocity.y` is zeroed
-- On ground collision `velocity.y` is zeroed, `isGrounded = true`
-
-### 3.7 Verification
+### 3.6 Verification
 - Jump reaches the specified height (measure with ruler in Scene View — must match `jumpHeight`)
 - Rise and fall times are visually different (asymmetric jump)
 - Low jump on short press
@@ -207,10 +212,7 @@ At this stage the MonoBehaviour `CharacterMover2D` itself is created with public
 - `DodgeState → WalkingState`: dodge timer expired
 - Ensure `WalkingState.OnEnter()` calls `ResolveSubState()` — after a mid-air dodge it must enter Fall, not Idle
 
-### 5.4 Dodge and CollisionSlideResolver
-- Dodge is interrupted on wall collision (character stops, dodge ends early) — or slides along the wall. Decide during testing
-
-### 5.5 Verification
+### 5.4 Verification
 - Dodge from Idle, Walk, Run — horizontal displacement of `dodgeDistance`
 - Dodge from Jump and Fall — vertical velocity resets, character hovers and moves horizontally
 - After a mid-air dodge — character starts falling (Fall), not standing (Idle)

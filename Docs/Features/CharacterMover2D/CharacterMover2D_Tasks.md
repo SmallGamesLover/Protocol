@@ -41,8 +41,8 @@
   - [ ] Create `RunSubState` implementing `IState, ITickable` — same as WalkSubState but accelerates toward `RunSpeed`
   - [ ] Register transitions: `Walk→Run` when Shift held AND horizontal input != 0, `Run→Walk` when Shift released, `Run→Idle` when horizontal input == 0
   - [ ] Update `ResolveSubState()` to account for Run (Shift held + input → Run)
-  - [ ] Create `CollisionSlideResolver` static utility class: method `Resolve(Vector2 movement, Vector2 hitNormal)` returns movement projected along the surface. Formula: `movement - Vector2.Dot(movement, hitNormal) * hitNormal`
-  - [ ] Integrate `CollisionSlideResolver` into horizontal movement — use `Rigidbody2D.Cast()` or `Physics2D.BoxCast` to detect walls before applying movement, then slide along them
+  - [ ] In `CharacterMover2D.Awake()`: initialize a `ContactFilter2D` field (`_contactFilter`) with `useLayerMask = true` and `GroundLayerMask` assigned. Instantiate `CollisionSlideResolver2D` as a private field `_collisionResolver`, passing `_rigidbody` to its constructor
+  - [ ] Replace the raw `MovePosition(rb.position + velocity * deltaTime)` call with an `ApplyMovement(float deltaTime)` private method: compute `displacement = _collisionResolver.CollideAndSlide(Velocity * deltaTime, _contactFilter)`, then call `_rigidbody.MovePosition(_rigidbody.position + displacement)`
   - [ ] Uncomment `Move()` call in `PlayerInputReader`. Verify: character walks left/right, runs with Shift, decelerates to stop, slides along walls, ground check gizmo is visible
 
 - [ ] Phase 3: Jump and fall
@@ -53,7 +53,6 @@
   - [ ] Register transitions in `WalkingState` constructor: `Idle→Jump` / `Walk→Jump` / `Run→Jump` when jump requested AND (grounded OR coyote time active). `Jump→Fall` when `velocity.y < 0`. `Idle→Fall` / `Walk→Fall` / `Run→Fall` when NOT grounded (walked off edge). `Fall→Idle` when grounded AND no horizontal input. `Fall→Walk` when grounded AND horizontal input != 0
   - [ ] Implement coyote time: track a `_coyoteTimer` float. Start timer when transitioning from any grounded sub-state to `FallSubState` (walked off edge). Do NOT start timer when entering Fall from Jump. While timer > 0, jump transitions remain available. Decrement timer in `FallSubState.Tick()`
   - [ ] Implement jump buffer: track a `_jumpBufferTimer` float. Set to `JumpBufferTime` when jump is pressed while airborne. Decrement each frame. On landing (Fall→Idle or Fall→Walk), check if buffer > 0 — if so, transition to Jump immediately
-  - [ ] Extend `CollisionSlideResolver` for vertical collisions: on ceiling hit, zero `velocity.y`. On ground hit, zero `velocity.y`
   - [ ] Update `ResolveSubState()` to handle airborne entry: if not grounded → FallSubState
   - [ ] Uncomment `Jump()` call in `PlayerInputReader`. Verify: jump reaches expected height, asymmetric rise/fall, low jump on short press, coyote time works off edges but not after jump, jump buffer works on landing, ceiling stops ascent, `MaxFallSpeed` caps fall speed
 
@@ -71,7 +70,7 @@
   - [ ] Create `DodgeState` implementing `IState, ITickable`. `OnEnter()`: zero `velocity.y`, capture dodge direction, start `_dodgeTimer = DodgeTime`. `Tick()`: set `velocity.x = DodgeSpeed * direction`, keep `velocity.y = 0`, decrement `_dodgeTimer`. Expose `IsFinished` bool (true when timer <= 0)
   - [ ] Register top-level transitions in `CharacterMover2D`: `WalkingState→DodgeState` when dodge pressed, `DodgeState→WalkingState` when `DodgeState.IsFinished`
   - [ ] Verify `WalkingState.OnEnter()` calls `ResolveSubState()` — after mid-air dodge, must enter `FallSubState`, not `IdleSubState`
-  - [ ] Handle dodge + wall collision via `CollisionSlideResolver` — decide whether dodge stops or slides (test both, pick one)
+  - [ ] Handle dodge + wall collision via `CollisionSlideResolver2D` — decide whether dodge stops or slides (test both, pick one)
   - [ ] Uncomment `Dodge()` call in `PlayerInputReader`. Verify: dodge from Idle/Walk/Run covers `DodgeDistance`, dodge from Jump/Fall zeroes vertical velocity and moves horizontally, after mid-air dodge character falls (not idle), dodge into wall has no penetration
 
 - [ ] Phase 6: Input/movement separation verification (no new code — only testing)

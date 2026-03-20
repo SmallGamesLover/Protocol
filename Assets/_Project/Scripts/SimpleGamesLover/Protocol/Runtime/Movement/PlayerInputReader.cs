@@ -22,7 +22,7 @@ namespace SGL.Protocol.Runtime.Movement
             if (keyboard.aKey.isPressed || keyboard.leftArrowKey.isPressed) horizontal -= 1f;
 
             Vector2 direction = new Vector2(horizontal, 0f);
-            _mover.Move(direction);
+            //_mover.Move(direction);
 
             // _mover.Jump();   // Uncomment in Phase 3
             // _mover.Dodge();  // Uncomment in Phase 5

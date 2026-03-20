@@ -136,7 +136,7 @@ CharacterMover2D (MonoBehaviour, top FSM owner)
     │
     ├── WalkingConfig (ScriptableObject)
     ├── DodgeConfig (ScriptableObject)
-    └── CollisionSlideResolver (utility class)
+    └── CollisionSlideResolver2D (utility class)
 ```
 
 ### Interfaces
@@ -173,5 +173,20 @@ ScriptableObject with parameters for `WalkingState`. Tweakable in the Inspector 
 ### DodgeConfig
 ScriptableObject with parameters for `DodgeState`. Tweakable in the Inspector during Play Mode without recompilation.
 
-### CollisionSlideResolver
-A utility class with a single responsibility: takes a movement vector and a collision surface normal, returns an adjusted slide vector along the surface. Unaware of who calls it — used by both `WalkingState` and `FlyingState`.
+### CollisionSlideResolver2D
+A utility class responsible for one thing: resolving movement collisions via a recursive collide-and-slide algorithm. Does not move the rigidbody — returns a safe displacement vector for the caller to apply via `MovePosition`. Unaware of who calls it — used by both `WalkingState` and `FlyingState`.
+
+**How it works:**
+1. Casts the collider from its current position along the movement direction using `Rigidbody2D.Cast` with an explicit position parameter (the rigidbody itself never moves between recursion steps)
+2. On a hit: computes the safe distance to contact (minus `SKIN_WIDTH` gap), projects the remaining velocity onto the surface axis via `Vector2Extensions.ProjectOnAxis`, and recurses with the slide vector from the new contact point
+3. Corner wedge detection: if the projected slide direction opposes the previous recursion's surface normal, the character is wedged — returns only the safe portion with no further sliding
+4. Base cases: no hit (return full velocity as-is), or `MAX_BOUNCES` exceeded (return zero)
+
+**Constants:** `MAX_BOUNCES = 3`, `SKIN_WIDTH = 0.03f`.
+
+**Usage:**
+```csharp
+// CharacterMover2D.ApplyMovement():
+Vector2 displacement = _collisionResolver.CollideAndSlide(Velocity * fixedDeltaTime, _contactFilter);
+_rigidbody.MovePosition(_rigidbody.position + displacement);
+```
