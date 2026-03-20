@@ -46,14 +46,14 @@
   - [x] 37. Uncomment `Move()` call in `PlayerInputReader`. Verify: character walks left/right, runs with Shift, decelerates to stop, slides along walls, ground check gizmo is visible
 
 - [ ] Phase 3: Jump and fall
-  - [ ] 38. Add serialized fields to `WalkingConfig`: `JumpHeight` (float), `TimeToApex` (float), `TimeToDescent` (float), `LowJumpMultiplier` (float), `MaxFallSpeed` (float), `CoyoteTime` (float), `JumpBufferTime` (float)
-  - [ ] 39. Add computed read-only properties to `WalkingConfig`: `Gravity` = `-2 * JumpHeight / (TimeToApex * TimeToApex)`, `JumpVelocity` = `2 * JumpHeight / TimeToApex`, `FallMultiplier` = `(TimeToApex / TimeToDescent) * (TimeToApex / TimeToDescent)`
-  - [ ] 40. Create `JumpSubState` implementing `IState, ITickable`: `OnEnter()` sets `velocity.y = JumpVelocity`. `Tick()` applies gravity: `velocity.y += Gravity * deltaTime`. If jump button released and `velocity.y > 0`, multiply gravity by `LowJumpMultiplier`
-  - [ ] 41. Create `FallSubState` implementing `IState, ITickable`: `Tick()` applies gravity with fall multiplier: `velocity.y += Gravity * FallMultiplier * deltaTime`. Clamp `velocity.y` to no less than `-MaxFallSpeed`
-  - [ ] 42. Register transitions in `WalkingState` constructor: `Idle→Jump` / `Walk→Jump` / `Run→Jump` when jump requested AND (grounded OR coyote time active). `Jump→Fall` when `velocity.y < 0`. `Idle→Fall` / `Walk→Fall` / `Run→Fall` when NOT grounded (walked off edge). `Fall→Idle` when grounded AND no horizontal input. `Fall→Walk` when grounded AND horizontal input != 0
-  - [ ] 43. Implement coyote time: track a `_coyoteTimer` float. Start timer when transitioning from any grounded sub-state to `FallSubState` (walked off edge). Do NOT start timer when entering Fall from Jump. While timer > 0, jump transitions remain available. Decrement timer in `FallSubState.Tick()`
-  - [ ] 44. Implement jump buffer: track a `_jumpBufferTimer` float. Set to `JumpBufferTime` when jump is pressed while airborne. Decrement each frame. On landing (Fall→Idle or Fall→Walk), check if buffer > 0 — if so, transition to Jump immediately
-  - [ ] 45. Update `ResolveSubState()` to handle airborne entry: if not grounded → FallSubState
+  - [x] 38. Add serialized fields to `WalkingConfig`: `JumpHeight` (float), `TimeToApex` (float), `TimeToDescent` (float), `LowJumpMultiplier` (float), `MaxFallSpeed` (float), `CoyoteTime` (float), `JumpBufferTime` (float)
+  - [x] 39. Add computed read-only properties to `WalkingConfig`: `Gravity` = `-2 * JumpHeight / (TimeToApex * TimeToApex)`, `JumpVelocity` = `2 * JumpHeight / TimeToApex`, `FallMultiplier` = `(TimeToApex / TimeToDescent) * (TimeToApex / TimeToDescent)`
+  - [x] 40. Create `JumpSubState` implementing `IState, ITickable`: `OnEnter()` sets `velocity.y = JumpVelocity`. `Tick()` applies gravity: `velocity.y += Gravity * deltaTime`. If jump button released and `velocity.y > 0`, multiply gravity by `LowJumpMultiplier`
+  - [x] 41. Create `FallSubState` implementing `IState, ITickable`: `Tick()` applies gravity with fall multiplier: `velocity.y += Gravity * FallMultiplier * deltaTime`. Clamp `velocity.y` to no less than `-MaxFallSpeed`
+  - [x] 42. Register transitions in `WalkingState` constructor: `Idle→Jump` / `Walk→Jump` / `Run→Jump` when jump requested AND (grounded OR coyote time active). `Jump→Fall` when `velocity.y < 0`. `Idle→Fall` / `Walk→Fall` / `Run→Fall` when NOT grounded (walked off edge). `Fall→Idle` when grounded AND no horizontal input. `Fall→Walk` when grounded AND horizontal input != 0
+  - [x] 43. Implement coyote time: track a `_coyoteTimer` float. Start timer when transitioning from any grounded sub-state to `FallSubState` (walked off edge). Do NOT start timer when entering Fall from Jump. While timer > 0, jump transitions remain available. Decrement timer in `FallSubState.Tick()`
+  - [x] 44. Implement jump buffer: track a `_jumpBufferTimer` float. Set to `JumpBufferTime` when jump is pressed while airborne. Decrement each frame. On landing (Fall→Idle or Fall→Walk), check if buffer > 0 — if so, transition to Jump immediately
+  - [x] 45. Update `ResolveSubState()` to handle airborne entry: if not grounded → FallSubState
   - [ ] 46. Uncomment `Jump()` call in `PlayerInputReader`. Verify: jump reaches expected height, asymmetric rise/fall, low jump on short press, coyote time works off edges but not after jump, jump buffer works on landing, ceiling stops ascent, `MaxFallSpeed` caps fall speed
 
 - [ ] Phase 4: One-way platforms

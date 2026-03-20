@@ -34,6 +34,18 @@ namespace SGL.Protocol.Runtime.Movement
         /// <summary>True while the run button (Shift) is held. Set by PlayerInputReader or AI.</summary>
         public bool IsRunRequested { get; set; }
 
+        /// <summary>Set to true by Jump(). Consumed by JumpSubState.OnEnter() via ConsumeJumpRequest().</summary>
+        public bool IsJumpRequested { get; private set; }
+
+        /// <summary>True while the jump button is held. Used by JumpSubState for low-jump gravity.</summary>
+        public bool IsJumpHeld { get; set; }
+
+        /// <summary>Grace window after walking off an edge during which a jump is still available.</summary>
+        public float CoyoteTimer { get; set; }
+
+        /// <summary>Window during which a jump pressed in the air is remembered and fires on landing.</summary>
+        public float JumpBufferTimer { get; set; }
+
         private void Awake()
         {
             _rigidbody = GetComponent<Rigidbody2D>();
@@ -55,9 +67,16 @@ namespace SGL.Protocol.Runtime.Movement
             HorizontalInput = direction.x;
         }
 
-        /// <summary>Requests a jump. Handled by the current FSM state.</summary>
+        /// <summary>Requests a jump. Sets IsJumpRequested; the FSM transition consumes it.</summary>
         public void Jump()
         {
+            IsJumpRequested = true;
+        }
+
+        /// <summary>Resets IsJumpRequested. Called by JumpSubState.OnEnter() so the flag isn't re-consumed.</summary>
+        public void ConsumeJumpRequest()
+        {
+            IsJumpRequested = false;
         }
 
         /// <summary>Requests a dodge in the given direction.</summary>
