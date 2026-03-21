@@ -67,9 +67,9 @@
   - [x] 56. Refactor `WalkSubState.Tick()` to use `_config.GroundWalkParams.Apply()`
   - [x] 57. Refactor `RunSubState.Tick()` to use `_config.GroundRunParams.Apply()`
   - [x] 58. Refactor `IdleSubState.Tick()` to use `_config.GroundWalkParams.Apply(v.x, 0f, deltaTime)` — passing 0 as input produces target=0 and decelerates using Deceleration, identical to current behavior
-  - [ ] 59. Add air control to `JumpSubState.Tick()`: `v.x = _config.AirParams.Apply(v.x, _mover.HorizontalInput, deltaTime)`
-  - [ ] 60. Add air control to `FallSubState.Tick()`: `v.x = _config.AirParams.Apply(v.x, _mover.HorizontalInput, deltaTime)`
-  - [ ] 61. Uncomment `Jump()` call in `PlayerInputReader`. Verify: jump reaches expected height, asymmetric rise/fall, low jump on short press, coyote time works off edges and from FallSubState, jump buffer works on landing, ceiling stops ascent, `MaxFallSpeed` caps fall speed, air control allows mid-air direction change with inertia, running jump preserves horizontal speed
+  - [x] 59. Add air control to `JumpSubState.Tick()`: `v.x = _config.AirParams.Apply(v.x, _mover.HorizontalInput, deltaTime)`
+  - [x] 60. Add air control to `FallSubState.Tick()`: `v.x = _config.AirParams.Apply(v.x, _mover.HorizontalInput, deltaTime)`
+  - [x] 61. Uncomment `Jump()` call in `PlayerInputReader`. Verify: jump reaches expected height, asymmetric rise/fall, low jump on short press, coyote time works off edges and from FallSubState, jump buffer works on landing, ceiling stops ascent, `MaxFallSpeed` caps fall speed, air control allows mid-air direction change with inertia, running jump preserves horizontal speed
 
 - [ ] Phase 4: One-way platforms
   - [ ] 62. Add one-way platform GameObjects to the test scene: sprite + `BoxCollider2D`, layer `Platform`

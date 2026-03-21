@@ -48,6 +48,7 @@ namespace SGL.Protocol.Runtime.Movement.States
             Vector2 v = _mover.Velocity;
             v.y += _config.Gravity * _config.FallMultiplier * deltaTime;
             v.y  = Mathf.Max(v.y, -_config.MaxFallSpeed);
+            v.x  = _config.AirParams.Apply(v.x, _mover.HorizontalInput, deltaTime);
             _mover.Velocity = v;
         }
     }
