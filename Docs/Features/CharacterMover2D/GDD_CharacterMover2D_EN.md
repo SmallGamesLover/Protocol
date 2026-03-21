@@ -1,5 +1,5 @@
 # 2D Character Movement Component — Design Document
-> Version: 2.0.0 | Project: Protocol
+> Version: 3.0.0 | Project: Protocol
 
 ---
 
@@ -9,7 +9,9 @@
 
 **Collision Detection Mode:** Discrete. Sufficient due to the capped maximum fall speed.
 
-**Ground Check:** Ground contact is detected via `Physics2D.OverlapBox` just below the character's feet (or `Physics2D.Raycast` downward from the collider). The result is used to switch sub-states (Jump/Fall/Idle/Walk) and for coyote time.
+**Ground Check:** Ground contact is detected via `Physics2D.OverlapBox` just below the character's feet. The result is used to switch sub-states (Jump/Fall/Idle/Walk) and for coyote time.
+
+**Ceiling Check:** Ceiling contact is detected via `Physics2D.OverlapBox` just above the character's head. When the character hits a ceiling while moving upward (`velocity.y > 0`), vertical velocity is zeroed immediately. This causes gravity to pull `velocity.y` negative on the next frame, triggering the `Jump→Fall` transition. The check lives in `CharacterMover2D.FixedUpdate` (not in a specific state) so it applies universally — jumps, future dodge-up, or any other upward movement.
 
 **One-way Platforms:** Unity's `PlatformEffector2D` only works out of the box with Dynamic Rigidbody. With Kinematic, manual handling is required: on collision with a one-way platform, check the vertical movement direction — if the character is moving upward, the collision is ignored; if moving downward or standing still, the collision stops movement. Allocate dedicated time for implementation and testing.
 
@@ -48,6 +50,48 @@ WalkingState owns an instance of `StateMachine<IState>` and manages its sub-stat
 
 On entering `WalkingState` (first launch or return after DodgeState), `ResolveSubState()` is called — a method that determines the initial sub-state based on current conditions: ground contact, horizontal input presence, vertical velocity. **WalkingState does not default to Idle** — if a dodge ended mid-air, WalkingState enters Fall immediately.
 
+### Coyote Time Transitions
+
+Coyote time is available from `FallSubState` — a dedicated `Fall→Jump` transition checks `IsJumpRequested && CoyoteTimer > 0`. This is separate from the buffer-based `Fall→Jump` transition (which checks `IsGrounded && JumpBufferTimer > 0`). Both transitions are registered before `Fall→Idle/Walk/Run` to ensure jump takes priority over landing.
+
+---
+
+## HorizontalMoveParams (Value Object)
+
+A `readonly struct` encapsulating horizontal acceleration logic. Eliminates duplication across all five movement sub-states — Idle, Walk, Run, Jump, and Fall all use the same formula with different parameters. `IdleSubState` calls `Apply` with `input = 0`, which produces `target = 0` and decelerates toward zero using `Deceleration` — identical to its previous inline logic.
+
+```
+target = maxSpeed * sign(input)
+rate   = opposing ? deceleration : acceleration
+vel.x  = MoveTowards(vel.x, target, rate * deltaTime)
+```
+
+### Fields
+
+| Field | Type | Description |
+|---|---|---|
+| `MaxSpeed` | float | Target horizontal speed |
+| `Acceleration` | float | Rate of reaching target speed |
+| `Deceleration` | float | Rate of slowing when input opposes velocity |
+
+### Method
+
+`float Apply(float currentVelX, float input, float deltaTime)` — pure function, no side effects. Computes and returns the new horizontal velocity.
+
+### Parameter Sets (provided by WalkingConfig)
+
+| Property | MaxSpeed | Acceleration | Deceleration | Used by |
+|---|---|---|---|---|
+| `GroundWalkParams` | WalkSpeed | Acceleration | Deceleration | IdleSubState, WalkSubState |
+| `GroundRunParams` | RunSpeed | Acceleration | Deceleration | RunSubState |
+| `AirParams` | RunSpeed | AirAcceleration | AirDeceleration | JumpSubState, FallSubState |
+
+Each property creates a fresh struct from current WalkingConfig values every time it is accessed — Inspector changes apply immediately without caching issues.
+
+### Air Control
+
+Airborne sub-states (Jump, Fall) apply horizontal acceleration via `AirParams`. The target speed is `RunSpeed` so that a running jump preserves full horizontal speed. `AirAcceleration` and `AirDeceleration` are typically lower than ground values, giving a sense of inertia — the character is controllable in the air but does not turn instantly.
+
 ---
 
 ## WalkingConfig (ScriptableObject)
@@ -62,6 +106,8 @@ Configuration for `WalkingState`. Used by both the player and enemies.
 | `runSpeed` | float | Maximum run speed |
 | `acceleration` | float | Rate of reaching target speed |
 | `deceleration` | float | Rate of slowing down (higher than acceleration for a sense of control) |
+| `airAcceleration` | float | Horizontal acceleration in the air. Typically 30–60% of ground acceleration |
+| `airDeceleration` | float | Horizontal deceleration in the air. Low values preserve momentum |
 
 ### Jump
 
@@ -92,6 +138,14 @@ fallMultiplier = (timeToApex / timeToDescent)²
 
 > **Important:** Coyote time only activates on transition from a grounded state (Idle/Walk/Run) to Fall (walked off an edge). After a jump, coyote time is not active — otherwise the player gets an unintended "double jump": jumped → started falling → coyote time still active → jumped again.
 
+### HorizontalMoveParams Properties
+
+| Property | Composition | Used by |
+|---|---|---|
+| `GroundWalkParams` | WalkSpeed, Acceleration, Deceleration | IdleSubState, WalkSubState |
+| `GroundRunParams` | RunSpeed, Acceleration, Deceleration | RunSubState |
+| `AirParams` | RunSpeed, AirAcceleration, AirDeceleration | JumpSubState, FallSubState |
+
 ---
 
 ## DodgeConfig (ScriptableObject)
@@ -116,6 +170,7 @@ dodgeSpeed = dodgeDistance / dodgeTime
 - Blocks shooting and reloading for the entire dodge duration
 - Available from any `WalkingState` sub-state including `Jump` and `Fall` — the transition is defined at the top HFSM level
 - On completion, returns control to `WalkingState`, which determines the correct sub-state via `ResolveSubState()`
+
 ---
 
 ## Class Architecture
@@ -136,6 +191,7 @@ CharacterMover2D (MonoBehaviour, top FSM owner)
     │
     ├── WalkingConfig (ScriptableObject)
     ├── DodgeConfig (ScriptableObject)
+    ├── HorizontalMoveParams (readonly struct, value object)
     └── CollisionSlideResolver2D (utility class)
 ```
 
@@ -167,8 +223,18 @@ An independent component, unaware of the input source. Whether it is driven by t
 | `Jump()` | Jump |
 | `Dodge(Vector2 direction)` | Dodge in the specified direction |
 
+**Environment Checks (FixedUpdate):**
+
+| Property | Source | Description |
+|---|---|---|
+| `IsGrounded` | `OverlapBox` below feet | Used by FSM for state transitions |
+| `IsCeiling` | `OverlapBox` above head | When true and `velocity.y > 0`, vertical velocity is zeroed |
+
 ### WalkingConfig
 ScriptableObject with parameters for `WalkingState`. Tweakable in the Inspector during Play Mode without recompilation. Used by both the player and enemies — different instances with different values.
+
+### HorizontalMoveParams
+A `readonly struct` that encapsulates the horizontal acceleration formula. Created fresh each frame from `WalkingConfig` properties. See the dedicated section above.
 
 ### DodgeConfig
 ScriptableObject with parameters for `DodgeState`. Tweakable in the Inspector during Play Mode without recompilation.
@@ -177,12 +243,15 @@ ScriptableObject with parameters for `DodgeState`. Tweakable in the Inspector du
 A utility class responsible for one thing: resolving movement collisions via a recursive collide-and-slide algorithm. Does not move the rigidbody — returns a safe displacement vector for the caller to apply via `MovePosition`. Unaware of who calls it — used by both `WalkingState` and `FlyingState`.
 
 **How it works:**
-1. Casts the collider from its current position along the movement direction using `Rigidbody2D.Cast` with an explicit position parameter (the rigidbody itself never moves between recursion steps)
-2. On a hit: computes the safe distance to contact (minus `SKIN_WIDTH` gap), projects the remaining velocity onto the surface axis via `Vector2Extensions.ProjectOnAxis`, and recurses with the slide vector from the new contact point
-3. Corner wedge detection: if the projected slide direction opposes the previous recursion's surface normal, the character is wedged — returns only the safe portion with no further sliding
-4. Base cases: no hit (return full velocity as-is), or `MAX_BOUNCES` exceeded (return zero)
+1. Casts the collider from its current position along the movement direction using `Rigidbody2D.Cast` with an explicit position parameter (the rigidbody itself never moves between recursion steps). Cast distance extends beyond velocity by `SKIN_WIDTH` to detect surfaces within the skin gap ahead.
+2. **Hit filtering:** ignores hits where `dot(direction, normal) >= 0` — the character is moving away from or along the surface, so there is nothing to resolve. If no valid hit remains, the full velocity is returned as displacement.
+3. On a valid hit: computes safe displacement (`Mathf.Max(0, hit.distance - SKIN_WIDTH)`) and remaining velocity (`velocity - direction * Min(hit.distance, |velocity|)`). Safe displacement is clamped to zero to prevent backward movement when already closer than SKIN_WIDTH. Remainder is clamped to prevent inflation when the hit is beyond velocity range (found via SKIN_WIDTH cast extension).
+4. Projects the remaining velocity onto the surface axis via `Vector2Extensions.ProjectOnAxis`, preserving the projected magnitude for consistent slide speed on slopes.
+5. Corner wedge detection: if the projected slide direction opposes the previous recursion's surface normal, the character is wedged — returns only the safe portion with no further sliding.
+6. Recurses with the slide vector from the new contact point.
+7. Base cases: no valid hit (return full velocity), or `MAX_BOUNCES` exceeded (return zero).
 
-**Constants:** `MAX_BOUNCES = 3`, `SKIN_WIDTH = 0.03f`.
+**Constants:** `MAX_BOUNCES = 3`, `SKIN_WIDTH = 0.03f` (public const).
 
 **Usage:**
 ```csharp

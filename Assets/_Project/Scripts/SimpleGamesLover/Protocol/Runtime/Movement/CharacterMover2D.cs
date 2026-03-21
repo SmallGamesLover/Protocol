@@ -15,9 +15,14 @@ namespace SGL.Protocol.Runtime.Movement
 
         [SerializeField] private Vector2 GroundCheckSize = new Vector2(0.9f, 0.05f);
         [SerializeField] private Vector2 GroundCheckOffset = new Vector2(0f, 0f);
+        [SerializeField] private Vector2 CeilingCheckSize = new Vector2(0.9f, 0.05f);
+        [SerializeField] private Vector2 CeilingCheckOffset = new Vector2(0f, 0f);
         [SerializeField] private LayerMask GroundLayerMask;
 
+        public bool IsCeiling { get; private set; }
+
         private Rigidbody2D _rigidbody;
+        private BoxCollider2D _boxCollider;
         private StateMachine<IState> _topFsm;
         private ContactFilter2D _contactFilter;
         private CollisionSlideResolver2D _collisionResolver;
@@ -46,9 +51,16 @@ namespace SGL.Protocol.Runtime.Movement
         /// <summary>Window during which a jump pressed in the air is remembered and fires on landing.</summary>
         public float JumpBufferTimer { get; set; }
 
+        // Debug
+        [Header("Debug")]
+        [SerializeField] private float DebugVisualScale = 0.32f;
+        private Vector2 _debugDesiredDisplacement;
+        private Vector2 _debugResolvedDisplacement;
+
         private void Awake()
         {
             _rigidbody = GetComponent<Rigidbody2D>();
+            _boxCollider = GetComponent<BoxCollider2D>();
 
             _contactFilter = new ContactFilter2D { useLayerMask = true, layerMask = GroundLayerMask };
             _collisionResolver = new CollisionSlideResolver2D(_rigidbody);
@@ -87,6 +99,15 @@ namespace SGL.Protocol.Runtime.Movement
         private void FixedUpdate()
         {
             IsGrounded = CheckGround();
+            IsCeiling = CheckCeiling();
+
+            if (IsCeiling && Velocity.y > 0f)
+            {
+                Vector2 v = Velocity;
+                v.y = 0f;
+                Velocity = v;
+            }
+
             _topFsm.EvaluateTransitions();
             (_topFsm.CurrentState as ITickable)?.Tick(Time.fixedDeltaTime);
             ApplyMovement(Time.fixedDeltaTime);
@@ -94,8 +115,15 @@ namespace SGL.Protocol.Runtime.Movement
 
         private void ApplyMovement(float deltaTime)
         {
-            Vector2 displacement = _collisionResolver.CollideAndSlide(Velocity * deltaTime, _contactFilter);
-            _rigidbody.MovePosition(_rigidbody.position + displacement);
+            Vector2 desired = Velocity * deltaTime;
+            Vector2 resolved = _collisionResolver.CollideAndSlide(desired, _contactFilter);
+
+#if UNITY_EDITOR
+            _debugDesiredDisplacement = desired * DebugVisualScale / deltaTime;
+            _debugResolvedDisplacement = resolved * DebugVisualScale / deltaTime;
+#endif
+
+            _rigidbody.MovePosition(_rigidbody.position + resolved);
         }
 
         private bool CheckGround()
@@ -104,11 +132,54 @@ namespace SGL.Protocol.Runtime.Movement
             return Physics2D.OverlapBox(origin, GroundCheckSize, 0f, GroundLayerMask);
         }
 
-        private void OnDrawGizmosSelected()
+        private bool CheckCeiling()
         {
-            Vector2 origin = (Vector2)transform.position + GroundCheckOffset;
-            Gizmos.color = CheckGround() ? Color.green : Color.red;
-            Gizmos.DrawWireCube(origin, GroundCheckSize);
+            Vector2 origin = (Vector2)transform.position + CeilingCheckOffset;
+            return Physics2D.OverlapBox(origin, CeilingCheckSize, 0f, GroundLayerMask);
         }
+
+#if UNITY_EDITOR
+
+        private void OnDrawGizmos()
+        {
+            // Ground check box
+            Vector2 groundOrigin = (Vector2)transform.position + GroundCheckOffset;
+            Gizmos.color = IsGrounded ? Color.green : Color.red;
+            Gizmos.DrawWireCube(groundOrigin, GroundCheckSize);
+
+            // Ceiling check box
+            Vector2 ceilingOrigin = (Vector2)transform.position + CeilingCheckOffset;
+            Gizmos.color = IsCeiling ? Color.magenta : new Color(1f, 0f, 1f, 0.25f);
+            Gizmos.DrawWireCube(ceilingOrigin, CeilingCheckSize);
+
+            if (!Application.isPlaying) return;
+
+            // Collide and slide debugging
+            Vector2 center = _rigidbody.position;
+            Vector2 size = _boxCollider.size;
+            Vector2 skinSize = size + Vector2.one * CollisionSlideResolver2D.SKIN_WIDTH * 2f;
+
+            // Current position
+            Gizmos.color = Color.green;
+            Gizmos.DrawWireCube(center, size);
+            Gizmos.color = new Color(0f, 1f, 0f, 0.25f);
+            Gizmos.DrawWireCube(center, skinSize);
+
+            // Desired displacement (raw velocity)
+            Gizmos.color = Color.yellow;
+            Gizmos.DrawLine(center, center + _debugDesiredDisplacement);
+            Gizmos.DrawWireCube(center + _debugDesiredDisplacement, size);
+            Gizmos.color = new Color(1f, 1f, 0f, 0.25f);
+            Gizmos.DrawWireCube(center + _debugDesiredDisplacement, skinSize);
+
+            // Resolved displacement (after CollideAndSlide)
+            Gizmos.color = Color.cyan;
+            Gizmos.DrawLine(center, center + _debugResolvedDisplacement);
+            Gizmos.DrawWireCube(center + _debugResolvedDisplacement, size);
+            Gizmos.color = new Color(0f, 1f, 1f, 0.25f);
+            Gizmos.DrawWireCube(center + _debugResolvedDisplacement, skinSize);
+        }
+#endif
+
     }
 }

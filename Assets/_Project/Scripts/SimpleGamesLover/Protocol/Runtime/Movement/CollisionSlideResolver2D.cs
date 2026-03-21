@@ -10,8 +10,8 @@ namespace SGL.Protocol.Runtime.Movement
     /// </summary>
     public class CollisionSlideResolver2D
     {
-        private static int MAX_BOUNCES = 3;
-        private static float SKIN_WIDTH = 0.03f;
+        public const int MAX_BOUNCES = 3;
+        public const float SKIN_WIDTH = 0.015f;
 
         private readonly List<RaycastHit2D> _hitBuffer = new List<RaycastHit2D>(16);
 
@@ -56,14 +56,21 @@ namespace SGL.Protocol.Runtime.Movement
             int hitCount = _rb.Cast(position, 0f, direction, contactFilter, _hitBuffer, distance);
             if (hitCount > 0)
             {
-                int closestIndex = FindClosestHitIndex(hitCount);
+                int closestIndex = FindClosestHitIndex(hitCount, direction);
+                if (closestIndex < 0)
+                    return velocity;
+
                 RaycastHit2D hit = _hitBuffer[closestIndex];
 
                 // Safe displacement: move up to the contact point, minus SKIN_WIDTH gap.
-                Vector2 safeDistance = direction * (hit.distance - SKIN_WIDTH);
+                // Clamped to zero — if already closer than SKIN_WIDTH, don't move backward.
+                float safeMoveDist = Mathf.Max(0f, hit.distance - SKIN_WIDTH);
+                Vector2 safeDisplacement = direction * safeMoveDist;
 
-                // The portion of velocity that couldn't be applied due to the surface.
-                Vector2 remainingVelocity = velocity - safeDistance;
+                // Remaining velocity is computed from hit.distance (the actual contact point),
+                // not from safeMoveDist. SKIN_WIDTH affects where we stop, not how much
+                // energy remains for sliding. This prevents remainder inflation.
+                Vector2 remainingVelocity = velocity - direction * Mathf.Min(hit.distance, velocity.magnitude);
 
                 // Project the remaining velocity onto the surface axis.
                 // We preserve the original magnitude (leftOverMagnitude) instead of using
@@ -76,13 +83,19 @@ namespace SGL.Protocol.Runtime.Movement
                 // Corner check: if the slide direction goes into the surface from the
                 // previous recursion step, the character is wedged between two surfaces.
                 // Return only the safe portion — no further sliding is possible.
-                if (previousNormal != null && Vector2.Dot(remainingVelocity, previousNormal.Value) < 0f)
-                    return safeDistance;
+                bool wedged = previousNormal != null
+                    && Vector2.Dot(remainingVelocity, previousNormal.Value) < 0f;
+
+                //LogBounce(bounce, position, velocity, hit.distance, safeMoveDist,
+                //    safeDisplacement, remainingVelocity, hit.normal, previousNormal, wedged);
 
                 // Recurse: slide along the surface from the new position.
                 // The total displacement is the safe portion plus whatever
                 // the next recursion level resolves from the slide vector.
-                return safeDistance + CollideAndSlide(position + safeDistance, remainingVelocity, contactFilter, bounce + 1, hit.normal);
+                if (wedged == false)
+                    return safeDisplacement + CollideAndSlide(position + safeDisplacement, remainingVelocity, contactFilter, bounce + 1, hit.normal);
+                else
+                    return safeDisplacement;
             }
 
             // No collision — the entire velocity can be applied as displacement.
@@ -90,15 +103,21 @@ namespace SGL.Protocol.Runtime.Movement
         }
 
         /// <summary>
-        /// Finds the index of the closest hit in the buffer by distance.
+        /// Finds the closest hit that the character is actually moving into.
+        /// Skips surfaces where dot(direction, normal) >= 0 — the character
+        /// is moving away from or along them, so there is nothing to resolve.
+        /// Returns -1 if no valid hit exists.
         /// </summary>
-        private int FindClosestHitIndex(int hitCount)
+        private int FindClosestHitIndex(int hitCount, Vector2 direction)
         {
-            int closestIndex = 0;
-            float closestDistance = _hitBuffer[0].distance;
+            int closestIndex = -1;
+            float closestDistance = float.MaxValue;
 
-            for (int i = 1; i < hitCount; i++)
+            for (int i = 0; i < hitCount; i++)
             {
+                if (Vector2.Dot(direction, _hitBuffer[i].normal) >= 0f)
+                    continue;
+
                 if (_hitBuffer[i].distance < closestDistance)
                 {
                     closestDistance = _hitBuffer[i].distance;
@@ -107,6 +126,24 @@ namespace SGL.Protocol.Runtime.Movement
             }
 
             return closestIndex;
+        }
+
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        private void LogBounce(int bounce, Vector2 position, Vector2 velocity,
+    float hitDistance, float safeMoveDist, Vector2 safeDisplacement,
+    Vector2 remainingVelocity, Vector2 hitNormal, Vector2? previousNormal, bool wedged)
+        {
+            UnityEngine.Debug.Log(
+                $"[CnS] bounce={bounce} " +
+                $"pos=({position.x:F4},{position.y:F4}) " +
+                $"vel=({velocity.x:F4},{velocity.y:F4}) |vel|={velocity.magnitude:F4}\n" +
+                $"  hit.dist={hitDistance:F4} safeDist={safeMoveDist:F4} " +
+                $"normal=({hitNormal.x:F3},{hitNormal.y:F3})\n" +
+                $"  safeDisp=({safeDisplacement.x:F4},{safeDisplacement.y:F4})\n" +
+                $"  remainder=({remainingVelocity.x:F4},{remainingVelocity.y:F4}) " +
+                $"|rem|={remainingVelocity.magnitude:F4}\n" +
+                $"  prevNormal={(previousNormal.HasValue ? $"({previousNormal.Value.x:F3},{previousNormal.Value.y:F3})" : "none")} " +
+                $"wedged={wedged}");
         }
     }
 }

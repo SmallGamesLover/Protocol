@@ -1,5 +1,5 @@
 # CharacterMover2D — Tasks
-> Based on Implementation Plan v2.0.0
+> Based on Implementation Plan v3.0.0
 > Tasks are ordered chronologically. Complete each stage top-to-bottom before moving to the next.
 
 - [x] Phase 0: Scene setup and stubs
@@ -24,7 +24,7 @@
   - [x] 17. StateMachine has NO `Tick` method — ticking is the caller's responsibility
   - [x] 18. Write a simple verification: create two stub `IState` classes, register one transition, call `EvaluateTransitions()`, confirm that state switched and `OnEnter()`/`OnExit()` were called
 
-- [ ] Phase 2: Horizontal movement and ground check
+- [x] Phase 2: Horizontal movement and ground check
   - [x] 19. Create `WalkingConfig` ScriptableObject with serialized fields: `WalkSpeed` (float), `RunSpeed` (float), `Acceleration` (float), `Deceleration` (float)
   - [x] 20. Create a `WalkingConfig` asset instance in the project with placeholder values (e.g., walk 5, run 8, accel 50, decel 70)
   - [x] 21. Implement ground check in `CharacterMover2D`: `Physics2D.OverlapBox` slightly below the character's collider bottom edge. Expose `GroundCheckSize` (Vector2), `GroundCheckOffset` (Vector2), `GroundLayerMask` (LayerMask) as `[SerializeField]` fields
@@ -45,7 +45,7 @@
   - [x] 36. Replace the raw `MovePosition(rb.position + velocity * deltaTime)` call with an `ApplyMovement(float deltaTime)` private method: compute `displacement = _collisionResolver.CollideAndSlide(Velocity * deltaTime, _contactFilter)`, then call `_rigidbody.MovePosition(_rigidbody.position + displacement)`
   - [x] 37. Uncomment `Move()` call in `PlayerInputReader`. Verify: character walks left/right, runs with Shift, decelerates to stop, slides along walls, ground check gizmo is visible
 
-- [ ] Phase 3: Jump and fall
+- [ ] Phase 3: Jump, fall, ceiling check, and air control
   - [x] 38. Add serialized fields to `WalkingConfig`: `JumpHeight` (float), `TimeToApex` (float), `TimeToDescent` (float), `LowJumpMultiplier` (float), `MaxFallSpeed` (float), `CoyoteTime` (float), `JumpBufferTime` (float)
   - [x] 39. Add computed read-only properties to `WalkingConfig`: `Gravity` = `-2 * JumpHeight / (TimeToApex * TimeToApex)`, `JumpVelocity` = `2 * JumpHeight / TimeToApex`, `FallMultiplier` = `(TimeToApex / TimeToDescent) * (TimeToApex / TimeToDescent)`
   - [x] 40. Create `JumpSubState` implementing `IState, ITickable`: `OnEnter()` sets `velocity.y = JumpVelocity`. `Tick()` applies gravity: `velocity.y += Gravity * deltaTime`. If jump button released and `velocity.y > 0`, multiply gravity by `LowJumpMultiplier`
@@ -54,43 +54,61 @@
   - [x] 43. Implement coyote time: track a `_coyoteTimer` float. Start timer when transitioning from any grounded sub-state to `FallSubState` (walked off edge). Do NOT start timer when entering Fall from Jump. While timer > 0, jump transitions remain available. Decrement timer in `FallSubState.Tick()`
   - [x] 44. Implement jump buffer: track a `_jumpBufferTimer` float. Set to `JumpBufferTime` when jump is pressed while airborne. Decrement each frame. On landing (Fall→Idle or Fall→Walk), check if buffer > 0 — if so, transition to Jump immediately
   - [x] 45. Update `ResolveSubState()` to handle airborne entry: if not grounded → FallSubState
-  - [ ] 46. Uncomment `Jump()` call in `PlayerInputReader`. Verify: jump reaches expected height, asymmetric rise/fall, low jump on short press, coyote time works off edges but not after jump, jump buffer works on landing, ceiling stops ascent, `MaxFallSpeed` caps fall speed
+  - [x] 46. Register `Fall→Jump` transition for coyote time: `_mover.IsJumpRequested && _mover.CoyoteTimer > 0f`. Place it after the buffer-based `Fall→Jump` and before `Fall→Idle/Walk/Run` transitions
+  - [x] 47. Implement ceiling check in `CharacterMover2D`: `Physics2D.OverlapBox` slightly above the character's collider top edge. Expose `CeilingCheckSize` (Vector2), `CeilingCheckOffset` (Vector2) as `[SerializeField]` fields. Add `IsCeiling` public read-only property
+  - [x] 48. In `FixedUpdate`, after ground check: `IsCeiling = CheckCeiling()`. If `IsCeiling && Velocity.y > 0`, zero out `Velocity.y`
+  - [x] 49. Add ceiling check Gizmo in `OnDrawGizmos()`: magenta box above head
+  - [x] 50. Fix CollisionSlideResolver2D — clamp safeDistance: `Mathf.Max(0f, hit.distance - SKIN_WIDTH)` to prevent backward displacement when closer than SKIN_WIDTH to a surface
+  - [x] 51. Fix CollisionSlideResolver2D — clamp remainder: `velocity - direction * Mathf.Min(hit.distance, velocity.magnitude)` to prevent remainder inflation from hits beyond velocity range
+  - [x] 52. Fix CollisionSlideResolver2D — filter hits by direction: skip hits where `dot(direction, hit.normal) >= 0` (character moving away from surface). Return full velocity if no valid hits remain. Change `SKIN_WIDTH` to `public const`, `MAX_BOUNCES` to `private const`
+  - [x] 53. Add serialized fields to `WalkingConfig`: `AirAcceleration` (float, default 25), `AirDeceleration` (float, default 10)
+  - [x] 54. Create `HorizontalMoveParams` readonly struct with fields: `MaxSpeed`, `Acceleration`, `Deceleration`. Add `float Apply(float currentVelX, float input, float deltaTime)` pure method implementing `MoveTowards` with opposing-direction detection
+  - [x] 55. Add HorizontalMoveParams properties to `WalkingConfig`: `GroundWalkParams` → new(WalkSpeed, Acceleration, Deceleration), `GroundRunParams` → new(RunSpeed, Acceleration, Deceleration), `AirParams` → new(RunSpeed, AirAcceleration, AirDeceleration)
+  - [x] 56. Refactor `WalkSubState.Tick()` to use `_config.GroundWalkParams.Apply()`
+  - [x] 57. Refactor `RunSubState.Tick()` to use `_config.GroundRunParams.Apply()`
+  - [x] 58. Refactor `IdleSubState.Tick()` to use `_config.GroundWalkParams.Apply(v.x, 0f, deltaTime)` — passing 0 as input produces target=0 and decelerates using Deceleration, identical to current behavior
+  - [ ] 59. Add air control to `JumpSubState.Tick()`: `v.x = _config.AirParams.Apply(v.x, _mover.HorizontalInput, deltaTime)`
+  - [ ] 60. Add air control to `FallSubState.Tick()`: `v.x = _config.AirParams.Apply(v.x, _mover.HorizontalInput, deltaTime)`
+  - [ ] 61. Uncomment `Jump()` call in `PlayerInputReader`. Verify: jump reaches expected height, asymmetric rise/fall, low jump on short press, coyote time works off edges and from FallSubState, jump buffer works on landing, ceiling stops ascent, `MaxFallSpeed` caps fall speed, air control allows mid-air direction change with inertia, running jump preserves horizontal speed
 
 - [ ] Phase 4: One-way platforms
-  - [ ] 47. Add one-way platform GameObjects to the test scene: sprite + `BoxCollider2D`, layer `Platform`
-  - [ ] 48. Implement one-way platform logic in collision handling: if character collides with a `Platform` layer collider AND `velocity.y > 0` (moving up) — ignore the collision entirely
-  - [ ] 49. If colliding with `Platform` layer AND `velocity.y <= 0` AND character's collider bottom edge is above the platform's collider top edge — treat as solid ground, stop the fall
-  - [ ] 50. Update ground check `GroundLayerMask` to include `Platform` layer — `OverlapBox` must recognize one-way platforms as ground when the character stands on top
-  - [ ] 51. Verify: character jumps through platform from below, lands on platform when falling, ground check detects one-way platform as ground, jumping from one-way platform works identically to regular floor
+  - [ ] 62. Add one-way platform GameObjects to the test scene: sprite + `BoxCollider2D`, layer `Platform`
+  - [ ] 63. Implement one-way platform logic in collision handling: if character collides with a `Platform` layer collider AND `velocity.y > 0` (moving up) — ignore the collision entirely
+  - [ ] 64. If colliding with `Platform` layer AND `velocity.y <= 0` AND character's collider bottom edge is above the platform's collider top edge — treat as solid ground, stop the fall
+  - [ ] 65. Update ground check `GroundLayerMask` to include `Platform` layer — `OverlapBox` must recognize one-way platforms as ground when the character stands on top
+  - [ ] 66. Verify: character jumps through platform from below, lands on platform when falling, ground check detects one-way platform as ground, jumping from one-way platform works identically to regular floor
 
 - [ ] Phase 5: Dodge
-  - [ ] 52. Create `DodgeConfig` ScriptableObject with serialized fields: `DodgeDistance` (float), `DodgeTime` (float)
-  - [ ] 53. Add computed read-only property: `DodgeSpeed` = `DodgeDistance / DodgeTime`
-  - [ ] 54. Create a `DodgeConfig` asset instance with placeholder values (e.g., distance 3, time 0.2)
-  - [ ] 55. Create `DodgeState` implementing `IState, ITickable`. `OnEnter()`: zero `velocity.y`, capture dodge direction, start `_dodgeTimer = DodgeTime`. `Tick()`: set `velocity.x = DodgeSpeed * direction`, keep `velocity.y = 0`, decrement `_dodgeTimer`. Expose `IsFinished` bool (true when timer <= 0)
-  - [ ] 56. Register top-level transitions in `CharacterMover2D`: `WalkingState→DodgeState` when dodge pressed, `DodgeState→WalkingState` when `DodgeState.IsFinished`
-  - [ ] 57. Verify `WalkingState.OnEnter()` calls `ResolveSubState()` — after mid-air dodge, must enter `FallSubState`, not `IdleSubState`
-  - [ ] 58. Handle dodge + wall collision via `CollisionSlideResolver2D` — decide whether dodge stops or slides (test both, pick one)
-  - [ ] 59. Uncomment `Dodge()` call in `PlayerInputReader`. Verify: dodge from Idle/Walk/Run covers `DodgeDistance`, dodge from Jump/Fall zeroes vertical velocity and moves horizontally, after mid-air dodge character falls (not idle), dodge into wall has no penetration
+  - [ ] 67. Create `DodgeConfig` ScriptableObject with serialized fields: `DodgeDistance` (float), `DodgeTime` (float)
+  - [ ] 68. Add computed read-only property: `DodgeSpeed` = `DodgeDistance / DodgeTime`
+  - [ ] 69. Create a `DodgeConfig` asset instance with placeholder values (e.g., distance 3, time 0.2)
+  - [ ] 70. Create `DodgeState` implementing `IState, ITickable`. `OnEnter()`: zero `velocity.y`, capture dodge direction, start `_dodgeTimer = DodgeTime`. `Tick()`: set `velocity.x = DodgeSpeed * direction`, keep `velocity.y = 0`, decrement `_dodgeTimer`. Expose `IsFinished` bool (true when timer <= 0)
+  - [ ] 71. Register top-level transitions in `CharacterMover2D`: `WalkingState→DodgeState` when dodge pressed, `DodgeState→WalkingState` when `DodgeState.IsFinished`
+  - [ ] 72. Verify `WalkingState.OnEnter()` calls `ResolveSubState()` — after mid-air dodge, must enter `FallSubState`, not `IdleSubState`
+  - [ ] 73. Handle dodge + wall collision via `CollisionSlideResolver2D` — decide whether dodge stops or slides (test both, pick one)
+  - [ ] 74. Uncomment `Dodge()` call in `PlayerInputReader`. Verify: dodge from Idle/Walk/Run covers `DodgeDistance`, dodge from Jump/Fall zeroes vertical velocity and moves horizontally, after mid-air dodge character falls (not idle), dodge into wall has no penetration
 
 - [ ] Phase 6: Input/movement separation verification (no new code — only testing)
-  - [ ] 60. Disable `PlayerInputReader` on the player GameObject
-  - [ ] 61. Create a temporary test MonoBehaviour `AutoMoverTest` that calls `_mover.Move(Vector2.right)` in `Update()`. Attach to player — verify character moves right without keyboard
-  - [ ] 62. Add `_mover.Jump()` call on a timer in `AutoMoverTest` — verify character jumps without key presses
-  - [ ] 63. Confirm `CharacterMover2D.cs` has zero `using UnityEngine.InputSystem` imports and zero references to `Keyboard` or `Mouse`
-  - [ ] 64. Confirm the only file in the project that references `Keyboard.current` or `Mouse.current` is `PlayerInputReader.cs`
-  - [ ] 65. Confirm zero uses of legacy `UnityEngine.Input` anywhere in the project
-  - [ ] 66. Delete `AutoMoverTest`, re-enable `PlayerInputReader`
+  - [ ] 75. Disable `PlayerInputReader` on the player GameObject
+  - [ ] 76. Create a temporary test MonoBehaviour `AutoMoverTest` that calls `_mover.Move(Vector2.right)` in `Update()`. Attach to player — verify character moves right without keyboard
+  - [ ] 77. Add `_mover.Jump()` call on a timer in `AutoMoverTest` — verify character jumps without key presses
+  - [ ] 78. Confirm `CharacterMover2D.cs` has zero `using UnityEngine.InputSystem` imports and zero references to `Keyboard` or `Mouse`
+  - [ ] 79. Confirm the only file in the project that references `Keyboard.current` or `Mouse.current` is `PlayerInputReader.cs`
+  - [ ] 80. Confirm zero uses of legacy `UnityEngine.Input` anywhere in the project
+  - [ ] 81. Delete `AutoMoverTest`, re-enable `PlayerInputReader`
 
 - [ ] Phase 7: Polish and tweaking
-  - [ ] 67. Tune `WalkSpeed`, `RunSpeed`, `Acceleration`, `Deceleration` via ScriptableObject in Play Mode
-  - [ ] 68. Tune `JumpHeight`, `TimeToApex`, `TimeToDescent`, `LowJumpMultiplier`, `MaxFallSpeed`
-  - [ ] 69. Tune `CoyoteTime`, `JumpBufferTime`
-  - [ ] 70. Tune `DodgeDistance`, `DodgeTime`
-  - [ ] 71. Add debug FSM display: show current top-level state name + sub-state name in `OnGUI()` or Console log
-  - [ ] 72. Add Gizmos: velocity vector, dodge distance preview
-  - [ ] 73. Test edge case: dodge in a corner between wall and floor
-  - [ ] 74. Test edge case: jump into ceiling at point-blank range
-  - [ ] 75. Test edge case: rapid direction switching (A→D→A quickly)
-  - [ ] 76. Test edge case: dodge at platform edge (no teleporting through floor)
-  - [ ] 77. Test edge case: multiple jump presses in a single frame
+  - [ ] 82. Tune `WalkSpeed`, `RunSpeed`, `Acceleration`, `Deceleration` via ScriptableObject in Play Mode
+  - [ ] 83. Tune `AirAcceleration`, `AirDeceleration` — balance responsiveness vs momentum
+  - [ ] 84. Tune `JumpHeight`, `TimeToApex`, `TimeToDescent`, `LowJumpMultiplier`, `MaxFallSpeed`
+  - [ ] 85. Tune `CoyoteTime`, `JumpBufferTime`
+  - [ ] 86. Tune `DodgeDistance`, `DodgeTime`
+  - [ ] 87. Add debug FSM display: show current top-level state name + sub-state name in `OnGUI()` or Console log
+  - [ ] 88. Add Gizmos: velocity vector, dodge distance preview
+  - [ ] 89. Test edge case: dodge in a corner between wall and floor
+  - [ ] 90. Test edge case: jump into ceiling at point-blank range
+  - [ ] 91. Test edge case: rapid direction switching (A→D→A quickly)
+  - [ ] 92. Test edge case: dodge at platform edge (no teleporting through floor)
+  - [ ] 93. Test edge case: multiple jump presses in a single frame
+  - [ ] 94. Test edge case: jump + hold direction into wall — slide along wall, no stick
+  - [ ] 95. Test edge case: stand in 90° corner, hold into wall — no penetration

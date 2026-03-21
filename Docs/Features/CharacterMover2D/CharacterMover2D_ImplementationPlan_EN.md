@@ -1,5 +1,5 @@
 # CharacterMover2D — Implementation Plan
-> Project: Protocol | Based on GDD v2.0.0
+> Project: Protocol | Based on GDD v3.0.0
 
 ---
 
@@ -80,31 +80,41 @@ At this stage the MonoBehaviour `CharacterMover2D` itself is created with public
 
 **Goal:** the character walks, runs, and decelerates. Minimal vertical slice — input produces visible movement on screen.
 
-### 2.1 WalkingConfig (ScriptableObject)
-- Parameters: `walkSpeed`, `runSpeed`, `acceleration`, `deceleration`
+### 2.1 HorizontalMoveParams (Value Object)
+
+A `readonly struct` encapsulating horizontal acceleration parameters and the shared formula used by all movement sub-states (Idle, Walk, Run, Jump, Fall):
+
+- Fields: `MaxSpeed`, `Acceleration`, `Deceleration`
+- Method: `float Apply(float currentVelX, float input, float deltaTime)` — pure function computing new horizontal velocity
+- Eliminates code duplication: Walk, Run, and airborne states all call the same `Apply` method with different parameter sets
+
+### 2.2 WalkingConfig (ScriptableObject)
+- Ground parameters: `walkSpeed`, `runSpeed`, `acceleration`, `deceleration`
+- Air parameters: `airAcceleration`, `airDeceleration`
+- HorizontalMoveParams properties: `GroundWalkParams`, `GroundRunParams`, `AirParams` — each creates a fresh struct from current config values on every access (no caching, Inspector changes apply immediately)
 - Create an asset instance with initial values for tweaking in Play Mode
 
-### 2.2 Ground Check
-- Implement ground contact detection via `Physics2D.OverlapBox` (or Raycast) slightly below the character's feet
+### 2.3 Ground Check
+- Implement ground contact detection via `Physics2D.OverlapBox` slightly below the character's feet
 - Ground check parameters (box size, offset, LayerMask) exposed as serialized fields for Inspector tuning
-- Add visualization in `OnDrawGizmos` — visible box/ray in Scene View
+- Add visualization in `OnDrawGizmos` — visible box in Scene View (green when grounded, red when airborne)
 
-### 2.3 CharacterMover2D (MonoBehaviour)
+### 2.4 CharacterMover2D (MonoBehaviour)
 - Create the component that owns the top-level FSM
 - At this stage: only `WalkingState` in the top FSM (DodgeState comes later)
 - In `FixedUpdate`: call `_topFsm.EvaluateTransitions()`, then tick the current state via `ITickable`
 - Apply the resulting velocity via `Rigidbody2D.MovePosition`
 
-### 2.4 Sub-States: IdleSubState and WalkSubState
-- `IdleSubState` — no horizontal input, grounded. Velocity.x decays via deceleration
-- `WalkSubState` — horizontal input, grounded. Accelerates toward `walkSpeed` via `acceleration`, decelerates via `deceleration`
+### 2.5 Sub-States: IdleSubState and WalkSubState
+- `IdleSubState` — no horizontal input, grounded. Uses `_config.GroundWalkParams.Apply(v.x, 0f, deltaTime)` — passing 0 as input decelerates toward zero
+- `WalkSubState` — horizontal input, grounded. Uses `_config.GroundWalkParams.Apply()` for acceleration
 - Transitions: Idle↔Walk based on horizontal input presence
 
-### 2.5 RunSubState
-- Horizontal input + Shift. Accelerates toward `runSpeed`
+### 2.6 RunSubState
+- Horizontal input + Shift. Uses `_config.GroundRunParams.Apply()` for acceleration toward `runSpeed`
 - Transitions: Walk↔Run on Shift hold/release, Run→Idle when input is absent
 
-### 2.6 Collision Handling — CollisionSlideResolver2D Integration
+### 2.7 Collision Handling — CollisionSlideResolver2D Integration
 
 `CollisionSlideResolver2D` is already implemented and available. This step wires it into `CharacterMover2D`.
 
@@ -117,7 +127,7 @@ At this stage the MonoBehaviour `CharacterMover2D` itself is created with public
   ```
 - No manual sinking fix or multi-pass casts needed — the recursive algorithm handles corner wedges and surface slides internally
 
-### 2.7 Verification
+### 2.8 Verification
 - Character moves left-right with acceleration/deceleration
 - Running while Shift is held
 - Sliding along walls, no penetration into colliders
@@ -125,47 +135,59 @@ At this stage the MonoBehaviour `CharacterMover2D` itself is created with public
 
 ---
 
-## Phase 3 — Jump and Fall
+## Phase 3 — Jump, Fall, and Air Control
 
-**Goal:** full airborne physics with responsive controls.
+**Goal:** full airborne physics with responsive controls and air control.
 
 ### 3.1 Jump Parameters in WalkingConfig
 - Add: `jumpHeight`, `timeToApex`, `timeToDescent`, `lowJumpMultiplier`, `maxFallSpeed`
 - Implement computed values: `gravity`, `jumpVelocity`, `fallMultiplier`
 - Add: `coyoteTime`, `jumpBufferTime`
+- Add: `airAcceleration`, `airDeceleration`
 
-### 3.2 JumpSubState
+### 3.2 Ceiling Check
+- Implement ceiling contact detection via `Physics2D.OverlapBox` slightly above the character's head
+- Parameters (`CeilingCheckSize`, `CeilingCheckOffset`) exposed as serialized fields
+- In `FixedUpdate`, after ground check: if `IsCeiling && Velocity.y > 0`, zero out `Velocity.y`
+- Add visualization in `OnDrawGizmos` — magenta box above head
+- This ensures the character stops rising on ceiling contact regardless of the active state
+
+### 3.3 JumpSubState
 - Entry: jump pressed while `isGrounded` (or within coyote time)
 - Sets `velocity.y = jumpVelocity`
 - Applies gravity every frame: `velocity.y += gravity * deltaTime`
 - Low jump: if jump button released before apex (`velocity.y > 0`), gravity is multiplied by `lowJumpMultiplier`
+- Air control: applies `_config.AirParams.Apply()` for horizontal movement each tick
 - Transition to Fall: `velocity.y < 0`
 
-### 3.3 FallSubState
+### 3.4 FallSubState
 - Entry: `velocity.y < 0` or walked off edge (from Idle/Walk/Run on losing ground contact)
 - Applies gravity with `fallMultiplier`: `velocity.y += gravity * fallMultiplier * deltaTime`
 - Clamped: `velocity.y` does not drop below `-maxFallSpeed`
+- Air control: applies `_config.AirParams.Apply()` for horizontal movement each tick
 - Transition to Idle or Walk: on ground contact (`isGrounded`)
 
-### 3.4 Coyote Time
+### 3.5 Coyote Time
 - Timer starts on transition from a grounded state (Idle/Walk/Run) to Fall
-- Jump is still available within the timer window
+- Jump is still available within the timer window — via a dedicated `Fall→Jump` transition that checks `IsJumpRequested && CoyoteTimer > 0`
 - **Not activated** after a jump — only when walking off an edge
 - Implementation: `wasCoyote` flag is reset on JumpSubState entry
 
-### 3.5 Jump Buffer
+### 3.6 Jump Buffer
 - Timer starts when jump is pressed in the air
 - If the character lands within the timer window — jump executes automatically
 - Implementation: `FallSubState` checks the buffer on landing before transitioning to Idle/Walk
 
-### 3.6 Verification
+### 3.7 Verification
 - Jump reaches the specified height (measure with ruler in Scene View — must match `jumpHeight`)
 - Rise and fall times are visually different (asymmetric jump)
 - Low jump on short press
 - Coyote time works when walking off edge, does not work after a jump
 - Jump buffer works on landing
-- Ceiling stops ascent
+- Ceiling stops ascent (velocity.y zeroed, character falls)
 - `maxFallSpeed` caps fall speed
+- Air control: horizontal direction changeable mid-jump with noticeable inertia
+- Running jump preserves horizontal speed
 
 ---
 
@@ -248,13 +270,15 @@ At this stage the MonoBehaviour `CharacterMover2D` itself is created with public
 
 ### 7.1 Parameter Tweaking
 - Tune `walkSpeed`, `runSpeed`, `acceleration`, `deceleration` using Play Mode + ScriptableObject
+- Tune `airAcceleration`, `airDeceleration` — balance between responsive air control and momentum feel
 - Tune `jumpHeight`, `timeToApex`, `timeToDescent`, `lowJumpMultiplier`
 - Tune `coyoteTime`, `jumpBufferTime`
 - Tune `dodgeDistance`, `dodgeTime`
 
 ### 7.2 Debug Visualization
 - Display current FSM state (top-level + sub-state) in UI or Console
-- Gizmos for ground check, velocity vector, dodge distance
+- Gizmos for ground check, ceiling check, velocity vector, dodge distance
+- Debug Gizmos in CharacterMover2D: desired displacement (yellow), resolved displacement (cyan), both with wireframe boxes and SKIN_WIDTH zones
 
 ### 7.3 Edge Cases
 - Dodge in a corner between wall and floor
@@ -262,6 +286,8 @@ At this stage the MonoBehaviour `CharacterMover2D` itself is created with public
 - Rapid direction switching
 - Dodge at platform edge (character must not teleport through the floor)
 - Multiple jump presses in a single frame
+- Jump + hold direction into wall — must slide along wall, not stick
+- Stand in 90° corner, hold into wall — no penetration
 
 ---
 
@@ -272,11 +298,11 @@ At this stage the MonoBehaviour `CharacterMover2D` itself is created with public
 | 0 | Scene setup + PlayerInputReader | 3–4 |
 | 1 | FSM infrastructure | 3–5 |
 | 2 | Horizontal movement and ground check | 8–12 |
-| 3 | Jump and fall | 8–12 |
+| 3 | Jump, fall, ceiling check, and air control | 10–14 |
 | 4 | One-way platforms | 6–10 |
 | 5 | Dodge | 5–8 |
 | 6 | Input/movement separation verification | 1–2 |
 | 7 | Polish and tweaking | 5–8 |
-| **Total** | | **39–61** |
+| **Total** | | **41–63** |
 
 > The riskiest phases in terms of time are 2, 3, and 4. Kinematic Rigidbody requires manual collision handling, and one-way platforms without PlatformEffector2D are a separate challenge. If Phase 4 starts consuming disproportionate time — consider a temporary switch to Dynamic Rigidbody with direct velocity control to unblock other prototype systems.

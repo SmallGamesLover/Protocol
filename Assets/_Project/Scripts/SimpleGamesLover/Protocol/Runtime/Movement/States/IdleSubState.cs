@@ -24,7 +24,7 @@ namespace SGL.Protocol.Runtime.Movement.States
         public void Tick(float deltaTime)
         {
             Vector2 v = _mover.Velocity;
-            v.x = Mathf.MoveTowards(v.x, 0f, _config.Deceleration * deltaTime);
+            v.x = _config.GroundWalkParams.Apply(v.x, 0f, deltaTime);
             _mover.Velocity = v;
         }
     }

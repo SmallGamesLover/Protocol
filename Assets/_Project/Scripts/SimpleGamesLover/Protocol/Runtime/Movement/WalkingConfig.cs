@@ -28,6 +28,16 @@ namespace SGL.Protocol.Runtime.Movement
         /// <summary>Rate of deceleration toward zero (units/s²). Higher than Acceleration for a sense of control.</summary>
         public float Deceleration { get; private set; } = 70f;
 
+        // --- Air movement ---
+
+        [field: SerializeField]
+        /// <summary>Horizontal acceleration in the air (units/s²). Typically 30–60% of ground Acceleration.</summary>
+        public float AirAcceleration { get; private set; } = 25f;
+
+        [field: SerializeField]
+        /// <summary>Horizontal deceleration in the air (units/s²). Low values preserve momentum.</summary>
+        public float AirDeceleration { get; private set; } = 10f;
+
         // --- Jump ---
 
         [field: SerializeField]
@@ -54,7 +64,7 @@ namespace SGL.Protocol.Runtime.Movement
 
         [field: SerializeField]
         /// <summary>Grace window after walking off an edge during which a jump is still available (seconds).</summary>
-        public float CoyoteTime { get; private set; } = 0.1f;
+        public float CoyoteTime { get; private set; } = 0.2f;
 
         [field: SerializeField]
         /// <summary>Window during which a jump input pressed in the air is remembered on landing (seconds).</summary>
@@ -70,5 +80,16 @@ namespace SGL.Protocol.Runtime.Movement
 
         /// <summary>Computed: (TimeToApex / TimeToDescent)². Gravity multiplier during fall.</summary>
         public float FallMultiplier => (TimeToApex / TimeToDescent) * (TimeToApex / TimeToDescent);
+
+        // --- HorizontalMoveParams presets ---
+
+        /// <summary>Ground walk parameters: WalkSpeed with ground Acceleration/Deceleration. Used by IdleSubState and WalkSubState.</summary>
+        public HorizontalMoveParams GroundWalkParams => new(WalkSpeed, Acceleration, Deceleration);
+
+        /// <summary>Ground run parameters: RunSpeed with ground Acceleration/Deceleration. Used by RunSubState.</summary>
+        public HorizontalMoveParams GroundRunParams => new(RunSpeed, Acceleration, Deceleration);
+
+        /// <summary>Air parameters: RunSpeed with AirAcceleration/AirDeceleration. Used by JumpSubState and FallSubState.</summary>
+        public HorizontalMoveParams AirParams => new(RunSpeed, AirAcceleration, AirDeceleration);
     }
 }

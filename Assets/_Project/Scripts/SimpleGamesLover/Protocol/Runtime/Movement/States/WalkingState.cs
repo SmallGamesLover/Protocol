@@ -14,18 +14,18 @@ namespace SGL.Protocol.Runtime.Movement.States
 
         private readonly IdleSubState _idle;
         private readonly WalkSubState _walk;
-        private readonly RunSubState  _run;
+        private readonly RunSubState _run;
         private readonly JumpSubState _jump;
         private readonly FallSubState _fall;
 
         public WalkingState(CharacterMover2D mover, WalkingConfig config)
         {
-            _mover  = mover;
+            _mover = mover;
             _config = config;
 
             _idle = new IdleSubState(mover, config);
             _walk = new WalkSubState(mover, config);
-            _run  = new RunSubState(mover,  config);
+            _run = new RunSubState(mover, config);
             _jump = new JumpSubState(mover, config);
             _fall = new FallSubState(mover, config);
 
@@ -60,7 +60,7 @@ namespace SGL.Protocol.Runtime.Movement.States
             // --- Ground → Jump (highest priority; checked before Fall and Walk) ---
             _subFsm.AddTransition(_idle, _jump, () => CanJump());
             _subFsm.AddTransition(_walk, _jump, () => CanJump());
-            _subFsm.AddTransition(_run,  _jump, () => CanJump());
+            _subFsm.AddTransition(_run, _jump, () => CanJump());
 
             // --- Jump → Fall ---
             _subFsm.AddTransition(_jump, _fall, () => _mover.Velocity.y < 0f);
@@ -68,7 +68,10 @@ namespace SGL.Protocol.Runtime.Movement.States
             // --- Ground → Fall (walked off edge) ---
             _subFsm.AddTransition(_idle, _fall, () => !_mover.IsGrounded);
             _subFsm.AddTransition(_walk, _fall, () => !_mover.IsGrounded);
-            _subFsm.AddTransition(_run,  _fall, () => !_mover.IsGrounded);
+            _subFsm.AddTransition(_run, _fall, () => !_mover.IsGrounded);
+
+            // --- Fall → Jump (coyote time — jumped after walking off edge) ---
+            _subFsm.AddTransition(_fall, _jump, () => _mover.IsJumpRequested && _mover.CoyoteTimer > 0f);
 
             // --- Fall → Jump (buffered jump fires on landing, checked before Idle/Walk) ---
             _subFsm.AddTransition(_fall, _jump, () => _mover.IsGrounded && _mover.JumpBufferTimer > 0f);
@@ -86,8 +89,8 @@ namespace SGL.Protocol.Runtime.Movement.States
             _subFsm.AddTransition(_walk, _idle, () => _mover.HorizontalInput == 0f);
 
             // --- Walk ↔ Run ---
-            _subFsm.AddTransition(_walk, _run,  () => _mover.IsRunRequested && _mover.HorizontalInput != 0f);
-            _subFsm.AddTransition(_run,  _walk, () => !_mover.IsRunRequested && _mover.HorizontalInput != 0f);
+            _subFsm.AddTransition(_walk, _run, () => _mover.IsRunRequested && _mover.HorizontalInput != 0f);
+            _subFsm.AddTransition(_run, _walk, () => !_mover.IsRunRequested && _mover.HorizontalInput != 0f);
 
             // --- Run → Idle ---
             _subFsm.AddTransition(_run, _idle, () => _mover.HorizontalInput == 0f);

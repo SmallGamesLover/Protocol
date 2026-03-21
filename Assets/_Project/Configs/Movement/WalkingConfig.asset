@@ -11,8 +11,17 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 51532599043ffbc42a7fc6d658803737, type: 3}
   m_Name: WalkingConfig
-  m_EditorClassIdentifier: SimpleGamesLover.Protocol.Runtime::SGL.Protocol.Runtime.Movement.WalkingConfig
-  <WalkSpeed>k__BackingField: 5
-  <RunSpeed>k__BackingField: 8
-  <Acceleration>k__BackingField: 50
-  <Deceleration>k__BackingField: 70
+  m_EditorClassIdentifier: SGL.Protocol.Runtime::SGL.Protocol.Runtime.Movement.WalkingConfig
+  <WalkSpeed>k__BackingField: 6
+  <RunSpeed>k__BackingField: 10
+  <Acceleration>k__BackingField: 60
+  <Deceleration>k__BackingField: 80
+  <AirAcceleration>k__BackingField: 30
+  <AirDeceleration>k__BackingField: 15
+  <JumpHeight>k__BackingField: 4
+  <TimeToApex>k__BackingField: 0.3
+  <TimeToDescent>k__BackingField: 0.4
+  <LowJumpMultiplier>k__BackingField: 3
+  <MaxFallSpeed>k__BackingField: 15
+  <CoyoteTime>k__BackingField: 0.2
+  <JumpBufferTime>k__BackingField: 0.1

@@ -24,14 +24,8 @@ namespace SGL.Protocol.Runtime.Movement.States
         /// <summary>Accelerates toward RunSpeed in the input direction.</summary>
         public void Tick(float deltaTime)
         {
-            float target = _config.RunSpeed * Mathf.Sign(_mover.HorizontalInput);
-
-            bool opposing = _mover.Velocity.x != 0f &&
-                            Mathf.Sign(_mover.HorizontalInput) != Mathf.Sign(_mover.Velocity.x);
-            float rate = opposing ? _config.Deceleration : _config.Acceleration;
-
             Vector2 v = _mover.Velocity;
-            v.x = Mathf.MoveTowards(v.x, target, rate * deltaTime);
+            v.x = _config.GroundRunParams.Apply(v.x, _mover.HorizontalInput, deltaTime);
             _mover.Velocity = v;
         }
     }
