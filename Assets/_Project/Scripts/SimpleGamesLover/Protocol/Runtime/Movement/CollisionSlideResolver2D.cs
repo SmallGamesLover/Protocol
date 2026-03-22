@@ -37,7 +37,7 @@ namespace SGL.Protocol.Runtime.Movement
         /// projects the remainder along the surface, and recurses with the slide vector.
         /// Returns the total safe displacement accumulated across all recursion levels.
         /// </summary>
-        private Vector2 CollideAndSlide(Vector2 position, Vector2 velocity, ContactFilter2D contactFilter, int bounce = 0, Vector2? previousNormal = null)
+        private Vector2 CollideAndSlide(Vector2 position, Vector2 velocity, ContactFilter2D contactFilter, Vector2? previousNormal = null, int bounce = 0)
         {
             if (bounce >= MAX_BOUNCES)
                 return Vector2.zero;
@@ -93,7 +93,7 @@ namespace SGL.Protocol.Runtime.Movement
                 // The total displacement is the safe portion plus whatever
                 // the next recursion level resolves from the slide vector.
                 if (wedged == false)
-                    return safeDisplacement + CollideAndSlide(position + safeDisplacement, remainingVelocity, contactFilter, bounce + 1, hit.normal);
+                    return safeDisplacement + CollideAndSlide(position + safeDisplacement, remainingVelocity, contactFilter, hit.normal, bounce + 1);
                 else
                     return safeDisplacement;
             }

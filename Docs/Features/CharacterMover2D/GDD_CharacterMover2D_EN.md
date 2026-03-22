@@ -1,5 +1,5 @@
 # 2D Character Movement Component — Design Document
-> Version: 3.0.0 | Project: Protocol
+> Version: 4.0.0 | Project: Protocol
 
 ---
 
@@ -9,11 +9,45 @@
 
 **Collision Detection Mode:** Discrete. Sufficient due to the capped maximum fall speed.
 
-**Ground Check:** Ground contact is detected via `Physics2D.OverlapBox` just below the character's feet. The result is used to switch sub-states (Jump/Fall/Idle/Walk) and for coyote time.
+**Ground Check:** Ground contact is detected via `Physics2D.OverlapBox` just below the character's feet. Uses `GroundLayerMask` which includes both Ground and Platform layers. Results are collected into an array and filtered individually: one-way platforms count as ground only when the character's bottom edge is at or above the platform's top edge (minus `SKIN_WIDTH` tolerance). Platforms matching the active `_dropThroughTarget` are skipped entirely. The filtered result is used to switch sub-states (Jump/Fall/Idle/Walk) and for coyote time.
 
-**Ceiling Check:** Ceiling contact is detected via `Physics2D.OverlapBox` just above the character's head. When the character hits a ceiling while moving upward (`velocity.y > 0`), vertical velocity is zeroed immediately. This causes gravity to pull `velocity.y` negative on the next frame, triggering the `Jump→Fall` transition. The check lives in `CharacterMover2D.FixedUpdate` (not in a specific state) so it applies universally — jumps, future dodge-up, or any other upward movement.
+**Ceiling Check:** Ceiling contact is detected via `Physics2D.OverlapBox` just above the character's head. Uses a dedicated `CeilingLayerMask` that includes only the Ground layer (excludes Platform). This means one-way platforms are invisible to the ceiling check at the physics query level — no programmatic filtering needed. When the character hits a ceiling while moving upward (`velocity.y > 0`), vertical velocity is zeroed immediately. This causes gravity to pull `velocity.y` negative on the next frame, triggering the `Jump→Fall` transition. The check lives in `CharacterMover2D.FixedUpdate` (not in a specific state) so it applies universally — jumps, future dodge-up, or any other upward movement.
 
-**One-way Platforms:** Unity's `PlatformEffector2D` only works out of the box with Dynamic Rigidbody. With Kinematic, manual handling is required: on collision with a one-way platform, check the vertical movement direction — if the character is moving upward, the collision is ignored; if moving downward or standing still, the collision stops movement. Allocate dedicated time for implementation and testing.
+**One-way Platforms:** Unity's `PlatformEffector2D` only works out of the box with Dynamic Rigidbody. With Kinematic, manual handling is required via a hit-filtering predicate injected into `CollisionSlideResolver2D`. See the dedicated section below.
+
+---
+
+## One-way Platforms
+
+### Core Principle
+
+A one-way platform blocks the character only when falling onto it from above. In all other cases — jumping from below, horizontal movement, or actively dropping through — the platform is transparent. This is achieved through two complementary mechanisms working together in a single predicate.
+
+### Hit Filtering — Two Mechanisms
+
+The predicate `ShouldIgnorePlatformHit(RaycastHit2D hit)` is passed to `CollisionSlideResolver2D` and evaluated for every hit during collide-and-slide. A platform hit is ignored when any of the following is true:
+
+**Mechanism 1 — Explicit drop-through override:** The hit collider matches `_dropThroughTarget`. This is set when the player presses "down" while standing on a platform, and cleared once the character's bottom edge passes below the platform's top edge. Exists solely to bridge the gap between pressing "down" (feet still above platform) and the moment positional check takes over.
+
+**Mechanism 2 — Positional check (always active):** The character's bottom edge is below the platform's top edge minus `SKIN_WIDTH`. Covers jumping through from below and continued falling after drop-through. This is the primary mechanism — it handles all cases except the initial frame of drop-through.
+
+**Unconditional side/bottom ignore:** Hits with `normal.y < 0.5` on platform-layer colliders are always ignored. The 0.5 threshold (~60° from horizontal) ensures only top-face contacts are treated as blocking. For rectangular `BoxCollider2D` this is a safety margin against floating-point imprecision.
+
+### Drop-through Mechanic
+
+When the player presses "down" while grounded on a one-way platform:
+
+1. `DropThrough()` identifies the platform collider via the ground check and stores it in `_dropThroughTarget`
+2. Mechanism 1 in the predicate immediately ignores this specific collider — the character begins to fall
+3. As the character descends, its bottom edge crosses below the platform's top edge — Mechanism 2 takes over
+4. `_dropThroughTarget` is cleared (positional check in `FixedUpdate`)
+5. The character continues falling through naturally — Mechanism 2 keeps ignoring the platform as long as the bottom edge is below the top edge
+
+Only the specific platform the character was standing on is affected. All other platforms remain solid.
+
+### Positional Tolerance
+
+All positional comparisons use `CollisionSlideResolver2D.SKIN_WIDTH` as the tolerance value. A separate constant is unnecessary because the tolerance operates in the same physical space as the collide-and-slide skin gap — when the character stands on a platform via the resolver, its bottom edge is approximately `platformTop + SKIN_WIDTH`.
 
 ---
 
@@ -222,13 +256,22 @@ An independent component, unaware of the input source. Whether it is driven by t
 | `Move(Vector2 direction)` | Horizontal movement. Vector2 allows using the component in `FlyingState`. WalkingState uses only `direction.x` and ignores `direction.y` |
 | `Jump()` | Jump |
 | `Dodge(Vector2 direction)` | Dodge in the specified direction |
+| `DropThrough()` | Drop through a one-way platform. Only works when grounded on a Platform-layer collider |
 
 **Environment Checks (FixedUpdate):**
 
 | Property | Source | Description |
 |---|---|---|
-| `IsGrounded` | `OverlapBox` below feet | Used by FSM for state transitions |
-| `IsCeiling` | `OverlapBox` above head | When true and `velocity.y > 0`, vertical velocity is zeroed |
+| `IsGrounded` | `OverlapBox` below feet (array-based, filtered) | Used by FSM for state transitions. Platform-layer colliders are validated by positional check and `_dropThroughTarget` filter |
+| `IsCeiling` | `OverlapBox` above head (`CeilingLayerMask`, Ground only) | When true and `velocity.y > 0`, vertical velocity is zeroed. One-way platforms excluded at query level |
+
+**One-way Platform State:**
+
+| Field | Type | Description |
+|---|---|---|
+| `_dropThroughTarget` | `Collider2D` | The specific platform collider being dropped through. Set by `DropThrough()`, cleared when the character's bottom edge passes below the platform's top edge |
+| `_platformLayer` | `int` | Platform layer index, cached in `Awake()` via `LayerMask.NameToLayer("Platform")`. Used in the hit-filtering predicate for int-to-int comparison with `gameObject.layer` |
+| `_colliderHalfHeight` | `float` | Half the character's collider height, used for bottom-edge calculations |
 
 ### WalkingConfig
 ScriptableObject with parameters for `WalkingState`. Tweakable in the Inspector during Play Mode without recompilation. Used by both the player and enemies — different instances with different values.
@@ -244,18 +287,21 @@ A utility class responsible for one thing: resolving movement collisions via a r
 
 **How it works:**
 1. Casts the collider from its current position along the movement direction using `Rigidbody2D.Cast` with an explicit position parameter (the rigidbody itself never moves between recursion steps). Cast distance extends beyond velocity by `SKIN_WIDTH` to detect surfaces within the skin gap ahead.
-2. **Hit filtering:** ignores hits where `dot(direction, normal) >= 0` — the character is moving away from or along the surface, so there is nothing to resolve. If no valid hit remains, the full velocity is returned as displacement.
-3. On a valid hit: computes safe displacement (`Mathf.Max(0, hit.distance - SKIN_WIDTH)`) and remaining velocity (`velocity - direction * Min(hit.distance, |velocity|)`). Safe displacement is clamped to zero to prevent backward movement when already closer than SKIN_WIDTH. Remainder is clamped to prevent inflation when the hit is beyond velocity range (found via SKIN_WIDTH cast extension).
-4. Projects the remaining velocity onto the surface axis via `Vector2Extensions.ProjectOnAxis`, preserving the projected magnitude for consistent slide speed on slopes.
-5. Corner wedge detection: if the projected slide direction opposes the previous recursion's surface normal, the character is wedged — returns only the safe portion with no further sliding.
-6. Recurses with the slide vector from the new contact point.
-7. Base cases: no valid hit (return full velocity), or `MAX_BOUNCES` exceeded (return zero).
+2. **Direction-based hit filtering:** ignores hits where `dot(direction, normal) >= 0` — the character is moving away from or along the surface, so there is nothing to resolve. This is a cheap check (dot product) that eliminates most irrelevant hits before any external logic runs.
+3. **External hit filtering (Strategy Pattern):** if a `Func<RaycastHit2D, bool> shouldIgnore` predicate was provided, each remaining hit is tested against it — ignored hits are skipped entirely. This is how one-way platform logic is injected without the resolver knowing about platforms. Runs after the direction check so the predicate only evaluates hits that would otherwise be resolved.
+4. If no valid hit remains after both filters, the full velocity is returned as displacement.
+5. On a valid hit: computes safe displacement (`Mathf.Max(0, hit.distance - SKIN_WIDTH)`) and remaining velocity (`velocity - direction * Min(hit.distance, |velocity|)`). Safe displacement is clamped to zero to prevent backward movement when already closer than SKIN_WIDTH. Remainder is clamped to prevent inflation when the hit is beyond velocity range (found via SKIN_WIDTH cast extension).
+6. Projects the remaining velocity onto the surface axis via `Vector2Extensions.ProjectOnAxis`, preserving the projected magnitude for consistent slide speed on slopes.
+7. Corner wedge detection: if the projected slide direction opposes the previous recursion's surface normal, the character is wedged — returns only the safe portion with no further sliding.
+8. Recurses with the slide vector from the new contact point.
+9. Base cases: no valid hit (return full velocity), or `MAX_BOUNCES` exceeded (return zero).
 
 **Constants:** `MAX_BOUNCES = 3`, `SKIN_WIDTH = 0.03f` (public const).
 
 **Usage:**
 ```csharp
 // CharacterMover2D.ApplyMovement():
-Vector2 displacement = _collisionResolver.CollideAndSlide(Velocity * deltaTime, _contactFilter);
+Vector2 displacement = _collisionResolver.CollideAndSlide(
+    Velocity * deltaTime, _contactFilter, ShouldIgnorePlatformHit);
 _rigidbody.MovePosition(_rigidbody.position + displacement);
 ```

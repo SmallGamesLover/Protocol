@@ -13,7 +13,7 @@ Engine: Unity 6.3 | 2D URP | Language: C# | IDE: VS Code
 - `Docs/Features/<FeatureName>/*GDD*.md` file contains the GDD document for a feature.
 - `Docs/Features/<FeatureName>/*Plan*.md` file contains the implementation plan for a feature.
 - `Docs/Features/<FeatureName>/*Tasks*.md` file contains specific small tasks to complete when implementing a feature.
-- `Docs/Features/<FeatureName>/Notes.md` file contains notes about a feature's GDD or implementation. Here you can write all the edits made along the way. Also feel free to write anything you think is worth noting: concerns about the current implementation, suggestions, comments, etc.
+- `Docs/Features/<FeatureName>/*Notes*.md` file contains notes about a feature's GDD or implementation. Here you can write all the edits made along the way. Also feel free to write anything you think is worth noting: concerns about the current implementation, suggestions, comments, etc.
 
 ## Code Style (C#)
 - Use PascalCase for classes and public members

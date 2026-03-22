@@ -1,5 +1,5 @@
 # CharacterMover2D — Implementation Plan
-> Project: Protocol | Based on GDD v3.0.0
+> Project: Protocol | Based on GDD v4.0.0
 
 ---
 
@@ -47,7 +47,7 @@ if (kb.leftShiftKey.wasPressedThisFrame)
     _mover.Dodge(dodgeDirection);
 ```
 
-This script is created in Phase 0 and used for manual testing throughout all subsequent phases. Commands are added as mechanics appear: `Move` in Phase 2, `Jump` in Phase 3, `Dodge` in Phase 5.
+This script is created in Phase 0 and used for manual testing throughout all subsequent phases. Commands are added as mechanics appear: `Move` in Phase 2, `Jump` in Phase 3, `DropThrough` in Phase 4, `Dodge` in Phase 5.
 
 ### 0.4 CharacterMover2D — Stub
 
@@ -193,24 +193,117 @@ A `readonly struct` encapsulating horizontal acceleration parameters and the sha
 
 ## Phase 4 — One-Way Platforms
 
-**Goal:** character jumps up through platforms from below and stands on them from above.
+**Goal:** character jumps up through platforms from below, stands on them from above, and can drop through them on command.
 
-### 4.1 Tag or Layer for One-Way Platforms
-- A way to distinguish a one-way platform from a regular collider
+### 4.1 Scene Setup
+- Add one-way platform GameObjects to the test scene: sprite + `BoxCollider2D`, layer `Platform`
+- Ensure `GroundLayerMask` on `CharacterMover2D` includes both Ground and Platform layers (already set up in Phase 0)
 
-### 4.2 Handling Logic
-- On collision with a one-way platform: if `velocity.y > 0` (moving up) — ignore the collision
-- If `velocity.y <= 0` (falling or standing) and the character's bottom edge is above the platform's top edge — stop the fall
-- Account for edge case: character stands on a platform and wants to drop down (optional mechanic, can be deferred)
+### 4.2 Predicate Parameter in CollisionSlideResolver2D (Strategy Pattern)
 
-### 4.3 Ground Check for One-Way Platforms
-- `OverlapBox` must recognize one-way platforms as ground when the character is standing on top of them
+Add an optional hit-filtering predicate to `CollideAndSlide`:
 
-### 4.4 Verification
-- Jumping up through the platform from below
-- Landing on the platform when falling
-- Ground check correctly detects contact with a one-way platform
-- Jumping from a one-way platform works the same as from a regular floor
+```csharp
+public Vector2 CollideAndSlide(
+    Vector2 velocity,
+    ContactFilter2D filter,
+    Func<RaycastHit2D, bool> shouldIgnore = null)
+```
+
+Inside the hit processing loop, **after** the existing `dot(direction, normal)` check (which is cheaper), add:
+
+```csharp
+if (shouldIgnore != null && shouldIgnore(hit))
+    continue;
+```
+
+The direction-based check (`dot`) runs first because it is a simple dot product that eliminates most irrelevant hits. The external predicate runs second, only on hits that would otherwise be resolved — this avoids unnecessary calls to potentially expensive filtering logic.
+
+This is the only change to `CollisionSlideResolver2D`. The resolver remains generic — it does not know what a platform is. The filtering decision is delegated to the caller via the injected predicate (Strategy Pattern).
+
+The predicate is also passed through to recursive calls so that platform filtering applies at every bounce iteration.
+
+### 4.3 Platform Hit Predicate in CharacterMover2D
+
+Create a private method `ShouldIgnorePlatformHit(RaycastHit2D hit)` that returns `true` when a platform hit should be ignored:
+
+1. **Not a platform** → return `false` (resolve normally)
+2. **Active drop-through target** → `hit.collider == _dropThroughTarget` → return `true`
+3. **Side or bottom hit** → `hit.normal.y < 0.5f` → return `true` (platforms only block from above)
+4. **Positional check** → character's bottom edge is below the platform's top edge minus `SKIN_WIDTH` → return `true` (character is below the platform — jumping through or continuing to fall)
+
+The 0.5 threshold for `normal.y` corresponds to ~60° from horizontal. For rectangular `BoxCollider2D` normals are always axis-aligned (0 or 1), so this is a safety margin against floating-point edge cases.
+
+Cache `_platformLayer` (int) via `LayerMask.NameToLayer("Platform")` and `_colliderHalfHeight` (float) in `Awake()` to avoid per-frame string lookups and repeated calculations.
+
+### 4.4 Wire Predicate into ApplyMovement
+
+Update `ApplyMovement()` to pass the predicate:
+
+```csharp
+Vector2 displacement = _collisionResolver.CollideAndSlide(
+    Velocity * deltaTime, _contactFilter, ShouldIgnorePlatformHit);
+_rigidbody.MovePosition(_rigidbody.position + displacement);
+```
+
+### 4.5 Ground Check Refactor — Array-Based with Platform Filtering
+
+The current `CheckGround()` uses a simple boolean `OverlapBox`. Replace with an array-based version that evaluates each collider individually:
+
+- Use `Physics2D.OverlapBox` overload that writes results into a pre-allocated `Collider2D[]` array
+- For each result:
+  - Skip if `collider == _dropThroughTarget`
+  - If collider is on Platform layer: check position — character's bottom edge must be at or above `collider.bounds.max.y - SKIN_WIDTH`. If below → skip (character is under the platform)
+  - Otherwise → valid ground, return `true`
+- If no valid collider found → return `false`
+
+### 4.6 Ceiling Check — Dedicated CeilingLayerMask
+
+One-way platforms should never act as ceilings. Instead of programmatic filtering, add a new serialized field `CeilingLayerMask` that includes only the Ground layer (excludes Platform). Replace the current `GroundLayerMask` reference in `CheckCeiling()` with `CeilingLayerMask`. Platforms are filtered out at the physics query level — no code changes to ceiling check logic.
+
+### 4.7 Drop-Through Mechanic
+
+Add a public method `DropThrough()` on `CharacterMover2D`:
+
+- Guard: only works when `IsGrounded` is true
+- Identify which platform the character is standing on: iterate the ground check results array, find the first collider on Platform layer
+- If found: store it in `_dropThroughTarget` (Collider2D field)
+- If no platform found (standing on solid ground): do nothing
+
+Clearing `_dropThroughTarget` — positional check in `FixedUpdate`, after movement is applied:
+
+```csharp
+if (_dropThroughTarget != null)
+{
+    float charBottom = _rigidbody.position.y - _colliderHalfHeight;
+    float platformTop = _dropThroughTarget.bounds.max.y;
+    if (charBottom < platformTop - CollisionSlideResolver2D.SKIN_WIDTH)
+        _dropThroughTarget = null;
+}
+```
+
+Once cleared, the standard positional check in the predicate continues ignoring the platform naturally (character is below it). This is not a timeout — it is a handoff from Mechanism 1 (explicit override) to Mechanism 2 (positional check).
+
+### 4.8 PlayerInputReader — Drop-Through Binding
+
+Add drop-through input:
+
+```csharp
+if (kb.sKey.wasPressedThisFrame)
+    _mover.DropThrough();
+```
+
+### 4.9 Verification
+- Character jumps through one-way platform from below without being stopped
+- Character lands on one-way platform when falling from above
+- Ground check correctly detects one-way platform as ground when standing on top
+- Jumping from a one-way platform works identically to regular floor (including coyote time)
+- Ceiling check does not trigger when jumping through a one-way platform from below
+- Drop-through: pressing S while standing on a platform causes character to fall through
+- Drop-through only affects the specific platform — other platforms below remain solid
+- Drop-through while standing on solid ground does nothing
+- Walking off a one-way platform and re-landing works correctly
+- Collide-and-slide: horizontal movement along a one-way platform surface works (no sticking)
 
 ---
 
@@ -299,10 +392,10 @@ A `readonly struct` encapsulating horizontal acceleration parameters and the sha
 | 1 | FSM infrastructure | 3–5 |
 | 2 | Horizontal movement and ground check | 8–12 |
 | 3 | Jump, fall, ceiling check, and air control | 10–14 |
-| 4 | One-way platforms | 6–10 |
+| 4 | One-way platforms + drop-through | 8–12 |
 | 5 | Dodge | 5–8 |
 | 6 | Input/movement separation verification | 1–2 |
 | 7 | Polish and tweaking | 5–8 |
-| **Total** | | **41–63** |
+| **Total** | | **43–67** |
 
 > The riskiest phases in terms of time are 2, 3, and 4. Kinematic Rigidbody requires manual collision handling, and one-way platforms without PlatformEffector2D are a separate challenge. If Phase 4 starts consuming disproportionate time — consider a temporary switch to Dynamic Rigidbody with direct velocity control to unblock other prototype systems.
