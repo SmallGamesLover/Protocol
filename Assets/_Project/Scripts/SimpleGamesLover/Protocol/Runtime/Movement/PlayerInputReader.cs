@@ -22,13 +22,16 @@ namespace SGL.Protocol.Runtime.Movement
             if (keyboard.aKey.isPressed || keyboard.leftArrowKey.isPressed) horizontal -= 1f;
 
             _mover.IsRunRequested = keyboard.leftShiftKey.isPressed || keyboard.rightShiftKey.isPressed;
-            _mover.IsJumpHeld     = keyboard.spaceKey.isPressed;
+            _mover.IsJumpHeld = keyboard.spaceKey.isPressed;
 
             Vector2 direction = new Vector2(horizontal, 0f);
             _mover.Move(direction);
 
             if (keyboard.spaceKey.wasPressedThisFrame)
                 _mover.Jump();
+
+            if (keyboard.sKey.isPressed)
+                _mover.DropThrough();
 
             // _mover.Dodge();  // Uncomment in Phase 5
         }

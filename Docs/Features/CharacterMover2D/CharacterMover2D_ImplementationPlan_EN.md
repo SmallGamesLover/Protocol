@@ -289,9 +289,11 @@ Once cleared, the standard positional check in the predicate continues ignoring 
 Add drop-through input:
 
 ```csharp
-if (kb.sKey.wasPressedThisFrame)
+if (kb.sKey.isPressed)
     _mover.DropThrough();
 ```
+
+Using `isPressed` instead of `wasPressedThisFrame` — holding S chains drop-through across multiple platforms consecutively. On each frame where S is held and the character is grounded on a platform, `DropThrough()` fires again, initiating another drop immediately on landing.
 
 ### 4.9 Verification
 - Character jumps through one-way platform from below without being stopped

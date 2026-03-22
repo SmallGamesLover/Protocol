@@ -27,7 +27,7 @@ A one-way platform blocks the character only when falling onto it from above. In
 
 The predicate `ShouldIgnorePlatformHit(RaycastHit2D hit)` is passed to `CollisionSlideResolver2D` and evaluated for every hit during collide-and-slide. A platform hit is ignored when any of the following is true:
 
-**Mechanism 1 — Explicit drop-through override:** The hit collider matches `_dropThroughTarget`. This is set when the player presses "down" while standing on a platform, and cleared once the character's bottom edge passes below the platform's top edge. Exists solely to bridge the gap between pressing "down" (feet still above platform) and the moment positional check takes over.
+**Mechanism 1 — Explicit drop-through override:** The hit collider matches `_dropThroughTarget`. This is set when the player holds "down" while standing on a platform, and cleared once the character's bottom edge passes below the platform's top edge. Exists solely to bridge the gap between holding "down" (feet still above platform) and the moment positional check takes over.
 
 **Mechanism 2 — Positional check (always active):** The character's bottom edge is below the platform's top edge minus `SKIN_WIDTH`. Covers jumping through from below and continued falling after drop-through. This is the primary mechanism — it handles all cases except the initial frame of drop-through.
 
@@ -35,7 +35,7 @@ The predicate `ShouldIgnorePlatformHit(RaycastHit2D hit)` is passed to `Collisio
 
 ### Drop-through Mechanic
 
-When the player presses "down" while grounded on a one-way platform:
+When the player holds "down" while grounded on a one-way platform:
 
 1. `DropThrough()` identifies the platform collider via the ground check and stores it in `_dropThroughTarget`
 2. Mechanism 1 in the predicate immediately ignores this specific collider — the character begins to fall
@@ -44,6 +44,8 @@ When the player presses "down" while grounded on a one-way platform:
 5. The character continues falling through naturally — Mechanism 2 keeps ignoring the platform as long as the bottom edge is below the top edge
 
 Only the specific platform the character was standing on is affected. All other platforms remain solid.
+
+Holding "down" continuously chains drop-through across stacked platforms: on each frame where the key is held and `IsGrounded` is true on a Platform-layer collider, `DropThrough()` fires again — the character falls through the next platform immediately on landing.
 
 ### Positional Tolerance
 

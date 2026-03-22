@@ -32,6 +32,7 @@ namespace SGL.Protocol.Runtime.Movement
         private int _platformLayer;
         private Collider2D _dropThroughTarget;
         private readonly Collider2D[] _groundCheckBuffer = new Collider2D[8];
+        private int _groundCheckCount;
 
         /// <summary>True when the character is standing on ground or a platform.</summary>
         public bool IsGrounded { get; private set; }
@@ -104,6 +105,24 @@ namespace SGL.Protocol.Runtime.Movement
         {
         }
 
+        /// <summary>
+        /// Drops through the one-way platform the character is currently standing on.
+        /// No-op when not grounded or not standing on a Platform-layer collider.
+        /// </summary>
+        public void DropThrough()
+        {
+            if (!IsGrounded) return;
+
+            for (int i = 0; i < _groundCheckCount; i++)
+            {
+                if (_groundCheckBuffer[i].gameObject.layer == _platformLayer)
+                {
+                    _dropThroughTarget = _groundCheckBuffer[i];
+                    return;
+                }
+            }
+        }
+
         private void FixedUpdate()
         {
             IsGrounded = CheckGround();
@@ -119,6 +138,15 @@ namespace SGL.Protocol.Runtime.Movement
             _topFsm.EvaluateTransitions();
             (_topFsm.CurrentState as ITickable)?.Tick(Time.fixedDeltaTime);
             ApplyMovement(Time.fixedDeltaTime);
+
+            // Positional clearing: once the character's bottom edge passes below the platform
+            // top, Mechanism 2 in the predicate takes over — explicit override no longer needed.
+            if (_dropThroughTarget != null)
+            {
+                float charBottom = _rigidbody.position.y - _boxCollider.size.y * 0.5f;
+                if (charBottom < _dropThroughTarget.bounds.max.y - CollisionSlideResolver2D.SKIN_WIDTH)
+                    _dropThroughTarget = null;
+            }
         }
 
         /// <summary>
@@ -162,10 +190,10 @@ namespace SGL.Protocol.Runtime.Movement
             float colliderHalfHeight = _boxCollider.size.y * 0.5f;
 
             Vector2 origin = (Vector2)transform.position + GroundCheckOffset;
-            int count = Physics2D.OverlapBox(origin, GroundCheckSize, 0f, _contactFilter, _groundCheckBuffer);
+            _groundCheckCount = Physics2D.OverlapBox(origin, GroundCheckSize, 0f, _contactFilter, _groundCheckBuffer);
             float charBottom = _rigidbody.position.y - colliderHalfHeight;
 
-            for (int i = 0; i < count; i++)
+            for (int i = 0; i < _groundCheckCount; i++)
             {
                 Collider2D col = _groundCheckBuffer[i];
 
@@ -195,6 +223,8 @@ namespace SGL.Protocol.Runtime.Movement
 
         private void OnDrawGizmos()
         {
+            if (!Application.isPlaying) return;
+
             // Ground check box
             Vector2 groundOrigin = (Vector2)transform.position + GroundCheckOffset;
             Gizmos.color = IsGrounded ? Color.green : Color.red;
@@ -202,10 +232,8 @@ namespace SGL.Protocol.Runtime.Movement
 
             // Ceiling check box
             Vector2 ceilingOrigin = (Vector2)transform.position + CeilingCheckOffset;
-            Gizmos.color = IsCeiling ? Color.magenta : new Color(1f, 0f, 1f, 0.25f);
+            Gizmos.color = IsCeiling ? Color.green : Color.red;
             Gizmos.DrawWireCube(ceilingOrigin, CeilingCheckSize);
-
-            if (!Application.isPlaying) return;
 
             // Collide and slide debugging
             Vector2 center = _rigidbody.position;
