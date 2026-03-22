@@ -143,7 +143,8 @@ namespace SGL.Protocol.Runtime.Movement
             // top, Mechanism 2 in the predicate takes over — explicit override no longer needed.
             if (_dropThroughTarget != null)
             {
-                float charBottom = _rigidbody.position.y - _boxCollider.size.y * 0.5f;
+                float colliderHalfHeight = _boxCollider.size.y * 0.5f;
+                float charBottom = _rigidbody.position.y - colliderHalfHeight;
                 if (charBottom < _dropThroughTarget.bounds.max.y - CollisionSlideResolver2D.SKIN_WIDTH)
                     _dropThroughTarget = null;
             }

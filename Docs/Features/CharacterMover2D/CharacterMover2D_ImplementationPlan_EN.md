@@ -275,7 +275,8 @@ Clearing `_dropThroughTarget` — positional check in `FixedUpdate`, after movem
 ```csharp
 if (_dropThroughTarget != null)
 {
-    float charBottom = _rigidbody.position.y - _colliderHalfHeight;
+    float colliderHalfHeight = _boxCollider.size.y * 0.5f;
+    float charBottom = _rigidbody.position.y - colliderHalfHeight;
     float platformTop = _dropThroughTarget.bounds.max.y;
     if (charBottom < platformTop - CollisionSlideResolver2D.SKIN_WIDTH)
         _dropThroughTarget = null;
