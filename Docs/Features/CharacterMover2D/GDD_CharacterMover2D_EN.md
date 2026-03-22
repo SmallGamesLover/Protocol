@@ -271,7 +271,6 @@ An independent component, unaware of the input source. Whether it is driven by t
 |---|---|---|
 | `_dropThroughTarget` | `Collider2D` | The specific platform collider being dropped through. Set by `DropThrough()`, cleared when the character's bottom edge passes below the platform's top edge |
 | `_platformLayer` | `int` | Platform layer index, cached in `Awake()` via `LayerMask.NameToLayer("Platform")`. Used in the hit-filtering predicate for int-to-int comparison with `gameObject.layer` |
-| `_colliderHalfHeight` | `float` | Half the character's collider height, used for bottom-edge calculations |
 
 ### WalkingConfig
 ScriptableObject with parameters for `WalkingState`. Tweakable in the Inspector during Play Mode without recompilation. Used by both the player and enemies — different instances with different values.

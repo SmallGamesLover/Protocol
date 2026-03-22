@@ -234,7 +234,7 @@ Create a private method `ShouldIgnorePlatformHit(RaycastHit2D hit)` that returns
 
 The 0.5 threshold for `normal.y` corresponds to ~60° from horizontal. For rectangular `BoxCollider2D` normals are always axis-aligned (0 or 1), so this is a safety margin against floating-point edge cases.
 
-Cache `_platformLayer` (int) via `LayerMask.NameToLayer("Platform")` and `_colliderHalfHeight` (float) in `Awake()` to avoid per-frame string lookups and repeated calculations.
+Cache `_platformLayer` (int) via `LayerMask.NameToLayer("Platform")` in `Awake()` to avoid per-frame string lookups. `colliderHalfHeight` is computed locally in each method that needs it (`_boxCollider.size.y * 0.5f`) rather than cached as a field — this supports dynamic collider size changes at runtime.
 
 ### 4.4 Wire Predicate into ApplyMovement
 

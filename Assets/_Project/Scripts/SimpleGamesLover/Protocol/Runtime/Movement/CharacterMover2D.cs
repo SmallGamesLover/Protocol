@@ -18,6 +18,7 @@ namespace SGL.Protocol.Runtime.Movement
         [SerializeField] private Vector2 CeilingCheckSize = new Vector2(0.9f, 0.05f);
         [SerializeField] private Vector2 CeilingCheckOffset = new Vector2(0f, 0f);
         [SerializeField] private LayerMask GroundLayerMask;
+        [SerializeField] private LayerMask CeilingLayerMask;
 
         public bool IsCeiling { get; private set; }
 
@@ -26,6 +27,11 @@ namespace SGL.Protocol.Runtime.Movement
         private StateMachine<IState> _topFsm;
         private ContactFilter2D _contactFilter;
         private CollisionSlideResolver2D _collisionResolver;
+
+        // One-way platform state
+        private int _platformLayer;
+        private Collider2D _dropThroughTarget;
+        private readonly Collider2D[] _groundCheckBuffer = new Collider2D[8];
 
         /// <summary>True when the character is standing on ground or a platform.</summary>
         public bool IsGrounded { get; private set; }
@@ -61,6 +67,8 @@ namespace SGL.Protocol.Runtime.Movement
         {
             _rigidbody = GetComponent<Rigidbody2D>();
             _boxCollider = GetComponent<BoxCollider2D>();
+
+            _platformLayer = LayerMask.NameToLayer("Platform");
 
             _contactFilter = new ContactFilter2D { useLayerMask = true, layerMask = GroundLayerMask };
             _collisionResolver = new CollisionSlideResolver2D(_rigidbody);
@@ -113,10 +121,33 @@ namespace SGL.Protocol.Runtime.Movement
             ApplyMovement(Time.fixedDeltaTime);
         }
 
+        /// <summary>
+        /// Returns true when the given platform hit should be ignored by CollisionSlideResolver2D.
+        /// Implements the two-mechanism one-way platform logic (see GDD §One-way Platforms).
+        /// </summary>
+        private bool ShouldIgnorePlatformHit(RaycastHit2D hit)
+        {
+            if (hit.collider.gameObject.layer != _platformLayer)
+                return false;
+
+            // Mechanism 1: explicit drop-through override.
+            if (hit.collider == _dropThroughTarget)
+                return true;
+
+            // Unconditional side/bottom ignore: platforms only block from above.
+            if (hit.normal.y < 0.5f)
+                return true;
+
+            // Mechanism 2: positional check — character is below or passing through platform.
+            float colliderHalfHeight = _boxCollider.size.y * 0.5f;
+            float charBottom = _rigidbody.position.y - colliderHalfHeight;
+            return charBottom < hit.collider.bounds.max.y - CollisionSlideResolver2D.SKIN_WIDTH;
+        }
+
         private void ApplyMovement(float deltaTime)
         {
             Vector2 desired = Velocity * deltaTime;
-            Vector2 resolved = _collisionResolver.CollideAndSlide(desired, _contactFilter);
+            Vector2 resolved = _collisionResolver.CollideAndSlide(desired, _contactFilter, ShouldIgnorePlatformHit);
 
 #if UNITY_EDITOR
             _debugDesiredDisplacement = desired * DebugVisualScale / deltaTime;
@@ -128,14 +159,36 @@ namespace SGL.Protocol.Runtime.Movement
 
         private bool CheckGround()
         {
+            float colliderHalfHeight = _boxCollider.size.y * 0.5f;
+
             Vector2 origin = (Vector2)transform.position + GroundCheckOffset;
-            return Physics2D.OverlapBox(origin, GroundCheckSize, 0f, GroundLayerMask);
+            int count = Physics2D.OverlapBox(origin, GroundCheckSize, 0f, _contactFilter, _groundCheckBuffer);
+            float charBottom = _rigidbody.position.y - colliderHalfHeight;
+
+            for (int i = 0; i < count; i++)
+            {
+                Collider2D col = _groundCheckBuffer[i];
+
+                if (col == _dropThroughTarget)
+                    continue;
+
+                // Platform-layer colliders are only valid ground when the character is on top.
+                if (col.gameObject.layer == _platformLayer)
+                {
+                    if (charBottom < col.bounds.max.y - CollisionSlideResolver2D.SKIN_WIDTH)
+                        continue;
+                }
+
+                return true;
+            }
+
+            return false;
         }
 
         private bool CheckCeiling()
         {
             Vector2 origin = (Vector2)transform.position + CeilingCheckOffset;
-            return Physics2D.OverlapBox(origin, CeilingCheckSize, 0f, GroundLayerMask);
+            return Physics2D.OverlapBox(origin, CeilingCheckSize, 0f, CeilingLayerMask);
         }
 
 #if UNITY_EDITOR

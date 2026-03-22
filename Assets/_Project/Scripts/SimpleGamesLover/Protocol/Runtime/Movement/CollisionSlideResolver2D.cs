@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using SGL.Protocol.Shared;
@@ -26,9 +27,10 @@ namespace SGL.Protocol.Runtime.Movement
         /// Entry point. Takes desired velocity for this frame, returns the resolved
         /// displacement vector that the caller should apply via MovePosition.
         /// </summary>
-        public Vector2 CollideAndSlide(Vector2 velocity, ContactFilter2D contactFilter)
+        /// <param name="shouldIgnore">Optional predicate. Return true to skip a hit entirely (Strategy Pattern). Applied after the dot-product direction check, so it only evaluates hits that would otherwise be resolved.</param>
+        public Vector2 CollideAndSlide(Vector2 velocity, ContactFilter2D contactFilter, Func<RaycastHit2D, bool> shouldIgnore = null)
         {
-            return CollideAndSlide(_rb.position, velocity, contactFilter);
+            return CollideAndSlide(_rb.position, velocity, contactFilter, shouldIgnore);
         }
 
         /// <summary>
@@ -37,7 +39,7 @@ namespace SGL.Protocol.Runtime.Movement
         /// projects the remainder along the surface, and recurses with the slide vector.
         /// Returns the total safe displacement accumulated across all recursion levels.
         /// </summary>
-        private Vector2 CollideAndSlide(Vector2 position, Vector2 velocity, ContactFilter2D contactFilter, Vector2? previousNormal = null, int bounce = 0)
+        private Vector2 CollideAndSlide(Vector2 position, Vector2 velocity, ContactFilter2D contactFilter, Func<RaycastHit2D, bool> shouldIgnore = null, Vector2? previousNormal = null, int bounce = 0)
         {
             if (bounce >= MAX_BOUNCES)
                 return Vector2.zero;
@@ -56,7 +58,7 @@ namespace SGL.Protocol.Runtime.Movement
             int hitCount = _rb.Cast(position, 0f, direction, contactFilter, _hitBuffer, distance);
             if (hitCount > 0)
             {
-                int closestIndex = FindClosestHitIndex(hitCount, direction);
+                int closestIndex = FindClosestHitIndex(hitCount, direction, shouldIgnore);
                 if (closestIndex < 0)
                     return velocity;
 
@@ -93,7 +95,7 @@ namespace SGL.Protocol.Runtime.Movement
                 // The total displacement is the safe portion plus whatever
                 // the next recursion level resolves from the slide vector.
                 if (wedged == false)
-                    return safeDisplacement + CollideAndSlide(position + safeDisplacement, remainingVelocity, contactFilter, hit.normal, bounce + 1);
+                    return safeDisplacement + CollideAndSlide(position + safeDisplacement, remainingVelocity, contactFilter, shouldIgnore, hit.normal, bounce + 1);
                 else
                     return safeDisplacement;
             }
@@ -108,14 +110,19 @@ namespace SGL.Protocol.Runtime.Movement
         /// is moving away from or along them, so there is nothing to resolve.
         /// Returns -1 if no valid hit exists.
         /// </summary>
-        private int FindClosestHitIndex(int hitCount, Vector2 direction)
+        private int FindClosestHitIndex(int hitCount, Vector2 direction, Func<RaycastHit2D, bool> shouldIgnore = null)
         {
             int closestIndex = -1;
             float closestDistance = float.MaxValue;
 
             for (int i = 0; i < hitCount; i++)
             {
+                // Cheap filter first: skip surfaces the character is moving away from or along.
                 if (Vector2.Dot(direction, _hitBuffer[i].normal) >= 0f)
+                    continue;
+
+                // External predicate (e.g. one-way platform logic): skip ignored hits.
+                if (shouldIgnore != null && shouldIgnore(_hitBuffer[i]))
                     continue;
 
                 if (_hitBuffer[i].distance < closestDistance)
