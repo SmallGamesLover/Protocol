@@ -102,10 +102,10 @@
     - [x] 84. Disable `PlayerInputReader` on the player GameObject
     - [x] 85. Create `AutoMoverTest` MonoBehaviour with a coroutine-based scenario that exercises every public API method in sequence: `Move(Vector2.right)` for ~1s → `Jump()` → wait for takeoff (`_mover.IsGrounded == false)` → mid-air `Move(Vector2.left)` → wait for landing → `Dodge(Vector2.right)` → wait for completion → walk onto one-way platform → `DropThrough()` → wait for landing below
     - [x] 86. Attach `AutoMoverTest` to the player, enter Play Mode. Verify the full sequence completes without keyboard — character walks, jumps, changes air direction, dodges, and drops through a platform
-  - [ ] **6B — Input value edge cases**
-    - [ ] 87. Call `Move(new Vector2(5f, 0f))` — verify character moves at normal walk speed (not 5×). Confirms `HorizontalMoveParams.Apply()` uses `Sign(input)`, not raw magnitude
-    - [ ] 88. Call `Move(new Vector2(1f, 1f))` — verify `direction.y` is ignored by `WalkingState`, no vertical velocity change, no errors
-    - [ ] 89. Set `IsJumpHeld = true` permanently, call `Jump()` once — verify full-height jump (low-jump multiplier never activates). Document as expected default behavior for AI
+  - [x] **6B — Input value edge cases**
+    - [x] 87. Call `Move(new Vector2(5f, 0f))` — verify character moves at normal walk speed (not 5×). Confirms `HorizontalMoveParams.Apply()` uses `Sign(input)`, not raw magnitude
+    - [x] 88. Call `Move(new Vector2(1f, 1f))` — verify `direction.y` is ignored by `WalkingState`, no vertical velocity change, no errors
+    - [x] 89. Set `IsJumpHeld = true` permanently, call `Jump()` once — verify full-height jump (low-jump multiplier never activates). Document as expected default behavior for AI
   - [ ] **6C — Hostile input patterns**
     - [ ] 90. **Pogo-stick test:** call `Jump()` every `Update()` for 5+ seconds. Observe whether the character chain-jumps infinitely via jump buffer on landing frames. Document the result
     - [ ] 91. **Infinite dodge chain:** call `Dodge(Vector2.right)` every `Update()` for 5+ seconds. Observe whether dodges chain with no gap between them. Document the result and note that caller-side cooldown is needed if this is unacceptable

@@ -28,7 +28,14 @@ namespace SGL.Protocol.Runtime.Movement
 
         private void Start()
         {
-            StartCoroutine(RunScenario());
+            StartCoroutine(RunAllTests());
+        }
+
+        private IEnumerator RunAllTests()
+        {
+            yield return StartCoroutine(RunScenario());
+            yield return new WaitForSeconds(1f);
+            yield return StartCoroutine(RunEdgeCaseTests());
         }
 
         private IEnumerator RunScenario()
@@ -90,6 +97,68 @@ namespace SGL.Protocol.Runtime.Movement
             Debug.Log("[AutoMoverTest] Step 8: Landed below platform");
 
             Debug.Log("[AutoMoverTest] Scenario complete. All public API methods exercised without keyboard input.");
+        }
+
+        /// <summary>
+        /// Phase 6B — Input value edge cases.
+        /// Verifies Move() magnitude clamping, direction.y isolation, and full-height jump with IsJumpHeld=true.
+        /// Observe Console output during Play Mode to confirm expected behavior.
+        /// </summary>
+        private IEnumerator RunEdgeCaseTests()
+        {
+            // Test 6B-87: Move() with non-normalized input — magnitude must not affect speed
+            Debug.Log("[AutoMoverTest] 6B-87: Move(5f, 0f) for 0.5s — expect WalkSpeed, NOT 5x WalkSpeed");
+            float startX = transform.position.x;
+            yield return WalkFor(new Vector2(5f, 0f), 0.5f);
+            float observedSpeed = Mathf.Abs(transform.position.x - startX) / 0.5f;
+            Debug.Log($"[AutoMoverTest] 6B-87 result: observed avg speed ~{observedSpeed:F2} u/s. " +
+                      "Expected: <= WalkSpeed (default ~5 u/s). If you see ~25+ u/s, Apply() is using raw magnitude.");
+            _mover.Move(Vector2.zero);
+            yield return new WaitForSeconds(0.5f);
+
+            // Test 6B-88: Move() with direction.y != 0 — vertical velocity must not change
+            Debug.Log("[AutoMoverTest] 6B-88: Move(1f, 1f) — expect direction.y ignored, Velocity.y unchanged");
+            float velYBefore = _mover.Velocity.y;
+            // Provide the non-zero y-component input for several frames
+            for (int i = 0; i < 5; i++)
+            {
+                _mover.Move(new Vector2(1f, 1f));
+                yield return null;
+            }
+            float velYAfter = _mover.Velocity.y;
+            Debug.Log($"[AutoMoverTest] 6B-88 result: Velocity.y before={velYBefore:F4}, after={velYAfter:F4}. " +
+                      "Expected: no change caused by direction.y=1. Any delta is gravity-only (character is grounded, should be ~0).");
+            _mover.Move(Vector2.zero);
+            yield return new WaitForSeconds(0.5f);
+
+            // Test 6B-89: IsJumpHeld=true permanently → LowJumpMultiplier never activates → full-height jump
+            Debug.Log("[AutoMoverTest] 6B-89: IsJumpHeld=true permanently, Jump() once — expect full-height jump");
+            float startY = transform.position.y;
+            float maxY = startY;
+            _mover.IsJumpHeld = true;
+            _mover.Jump();
+
+            yield return new WaitUntil(() => !_mover.IsGrounded);
+
+            // Track max Y until apex (velocity.y turns negative)
+            while (_mover.Velocity.y > 0f)
+            {
+                if (transform.position.y > maxY)
+                    maxY = transform.position.y;
+                yield return null;
+            }
+
+            float reachedHeight = maxY - startY;
+            Debug.Log($"[AutoMoverTest] 6B-89 result: max height = {reachedHeight:F3} units. " +
+                      "Expected: matches WalkingConfig.JumpHeight. IsJumpHeld=true = LowJumpMultiplier never applied. " +
+                      "This is the expected default behavior for AI callers that never 'release' the button.");
+
+            // Wait for landing, then clean up
+            yield return new WaitUntil(() => _mover.IsGrounded);
+            _mover.IsJumpHeld = false;
+            _mover.Move(Vector2.zero);
+
+            Debug.Log("[AutoMoverTest] 6B edge case tests complete.");
         }
 
         /// <summary>Calls Move() with the given direction each frame for the specified duration.</summary>
