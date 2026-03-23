@@ -1,5 +1,5 @@
 # CharacterMover2D — Tasks
-> Based on Implementation Plan v4.0.0
+> Based on Implementation Plan v4.1.0
 > Tasks are ordered chronologically. Complete each stage top-to-bottom before moving to the next.
 
 - [x] Phase 0: Scene setup and stubs
@@ -85,36 +85,39 @@
   - [x] 72. Verify: character jumps through one-way platform from below, lands on platform when falling, ground check detects platform as ground when standing on top, jumping from platform works identically to regular floor (including coyote time), ceiling check does not trigger when jumping through platform from below, drop-through on S causes character to fall through, drop-through only affects specific platform (others remain solid), drop-through on solid ground does nothing, horizontal sliding along platform surface works without sticking
 
 - [ ] Phase 5: Dodge
-  - [ ] 73. Create `DodgeConfig` ScriptableObject with serialized fields: `DodgeDistance` (float), `DodgeTime` (float)
-  - [ ] 74. Add computed read-only property: `DodgeSpeed` = `DodgeDistance / DodgeTime`
-  - [ ] 75. Create a `DodgeConfig` asset instance with placeholder values (e.g., distance 3, time 0.2)
-  - [ ] 76. Create `DodgeState` implementing `IState, ITickable`. `OnEnter()`: zero `velocity.y`, capture dodge direction, start `_dodgeTimer = DodgeTime`. `Tick()`: set `velocity.x = DodgeSpeed * direction`, keep `velocity.y = 0`, decrement `_dodgeTimer`. Expose `IsFinished` bool (true when timer <= 0)
-  - [ ] 77. Register top-level transitions in `CharacterMover2D`: `WalkingState→DodgeState` when dodge pressed, `DodgeState→WalkingState` when `DodgeState.IsFinished`
-  - [ ] 78. Verify `WalkingState.OnEnter()` calls `ResolveSubState()` — after mid-air dodge, must enter `FallSubState`, not `IdleSubState`
-  - [ ] 79. Handle dodge + wall collision via `CollisionSlideResolver2D` — decide whether dodge stops or slides (test both, pick one)
-  - [ ] 80. Uncomment `Dodge()` call in `PlayerInputReader`. Verify: dodge from Idle/Walk/Run covers `DodgeDistance`, dodge from Jump/Fall zeroes vertical velocity and moves horizontally, after mid-air dodge character falls (not idle), dodge into wall has no penetration
+  - [ ] 73. Create `DodgeConfig` ScriptableObject with serialized fields: `DodgeDistance` (float), `DodgeSpeed` (float). Add computed read-only property: `DodgeTime` = `DodgeDistance / DodgeSpeed`
+  - [ ] 74. Create a `DodgeConfig` asset instance with placeholder values (e.g., distance 3, speed 15)
+  - [ ] 75. Add dodge state to `CharacterMover2D`: public property `IsDodgeRequested` (bool), public property `DodgeDirection` (Vector2), public method `ConsumeDodgeRequest()` that sets `IsDodgeRequested = false`. Update existing `Dodge(Vector2 direction)` stub to set `IsDodgeRequested = true` and store `DodgeDirection = direction`
+  - [ ] 76. Add `[SerializeField] private DodgeConfig DodgeConfig` field to `CharacterMover2D`
+  - [ ] 77. Create `DodgeState` implementing `IState, ITickable`. Constructor receives `CharacterMover2D` and `DodgeConfig`. Private fields: `_remainingDistance` (float), `_direction` (float). Public property: `IsFinished` → `_remainingDistance <= 0f`
+  - [ ] 78. Implement `DodgeState.OnEnter()`: extract direction sign from `_mover.DodgeDirection.x` (default to +1 if zero), call `_mover.ConsumeDodgeRequest()`, set `_mover.Velocity.y = 0`, set `_remainingDistance = _config.DodgeDistance`
+  - [ ] 79. Implement `DodgeState.Tick(float deltaTime)`: compute `maxStep = _config.DodgeSpeed * deltaTime`. If `maxStep >= _remainingDistance` → set `Velocity = new Vector2((_remainingDistance / deltaTime) * _direction, 0f)` and `_remainingDistance = 0f`. Else → set `Velocity = new Vector2(_config.DodgeSpeed * _direction, 0f)` and `_remainingDistance -= maxStep`. Note: `_remainingDistance` tracks intended distance, not actual post-collision displacement
+  - [ ] 80. Register top-level transitions in `CharacterMover2D`: store `WalkingState` and `DodgeState` as concrete typed fields (not `IState`). Register `_topFsm.AddTransition(_walkingState, _dodgeState, () => IsDodgeRequested)` and `_topFsm.AddTransition(_dodgeState, _walkingState, () => _dodgeState.IsFinished)`
+  - [ ] 81. Verify `WalkingState.OnEnter()` calls `ResolveSubState()` — after mid-air dodge, must enter `FallSubState`, not `IdleSubState`. After grounded dodge, must enter correct sub-state based on input
+  - [ ] 82. Add dodge input to `PlayerInputReader`: on `leftShiftKey.wasPressedThisFrame`, read current A/D direction (default to +1 if none), call `_mover.Dodge(new Vector2(horizontal, 0f))`
+  - [ ] 83. Verify: dodge from Idle/Walk/Run covers exactly `DodgeDistance` (measure in Scene View), dodge from Jump/Fall zeroes vertical velocity and moves horizontally, after mid-air dodge character falls (not idle), after grounded dodge character enters correct sub-state, dodge into wall ends on schedule with no penetration, dodge off platform edge completes remaining distance in air then falls, `DodgeDistance` and `DodgeSpeed` tweakable in Inspector during Play Mode, rapid dodge spam does not re-trigger (consume pattern)
 
 - [ ] Phase 6: Input/movement separation verification (no new code — only testing)
-  - [ ] 81. Disable `PlayerInputReader` on the player GameObject
-  - [ ] 82. Create a temporary test MonoBehaviour `AutoMoverTest` that calls `_mover.Move(Vector2.right)` in `Update()`. Attach to player — verify character moves right without keyboard
-  - [ ] 83. Add `_mover.Jump()` call on a timer in `AutoMoverTest` — verify character jumps without key presses
-  - [ ] 84. Confirm `CharacterMover2D.cs` has zero `using UnityEngine.InputSystem` imports and zero references to `Keyboard` or `Mouse`
-  - [ ] 85. Confirm the only file in the project that references `Keyboard.current` or `Mouse.current` is `PlayerInputReader.cs`
-  - [ ] 86. Confirm zero uses of legacy `UnityEngine.Input` anywhere in the project
-  - [ ] 87. Delete `AutoMoverTest`, re-enable `PlayerInputReader`
+  - [ ] 84. Disable `PlayerInputReader` on the player GameObject
+  - [ ] 85. Create a temporary test MonoBehaviour `AutoMoverTest` that calls `_mover.Move(Vector2.right)` in `Update()`. Attach to player — verify character moves right without keyboard
+  - [ ] 86. Add `_mover.Jump()` call on a timer in `AutoMoverTest` — verify character jumps without key presses
+  - [ ] 87. Confirm `CharacterMover2D.cs` has zero `using UnityEngine.InputSystem` imports and zero references to `Keyboard` or `Mouse`
+  - [ ] 88. Confirm the only file in the project that references `Keyboard.current` or `Mouse.current` is `PlayerInputReader.cs`
+  - [ ] 89. Confirm zero uses of legacy `UnityEngine.Input` anywhere in the project
+  - [ ] 90. Delete `AutoMoverTest`, re-enable `PlayerInputReader`
 
 - [ ] Phase 7: Polish and tweaking
-  - [ ] 88. Tune `WalkSpeed`, `RunSpeed`, `Acceleration`, `Deceleration` via ScriptableObject in Play Mode
-  - [ ] 89. Tune `AirAcceleration`, `AirDeceleration` — balance responsiveness vs momentum
-  - [ ] 90. Tune `JumpHeight`, `TimeToApex`, `TimeToDescent`, `LowJumpMultiplier`, `MaxFallSpeed`
-  - [ ] 91. Tune `CoyoteTime`, `JumpBufferTime`
-  - [ ] 92. Tune `DodgeDistance`, `DodgeTime`
-  - [ ] 93. Add debug FSM display: show current top-level state name + sub-state name in `OnGUI()` or Console log
-  - [ ] 94. Add Gizmos: velocity vector, dodge distance preview
-  - [ ] 95. Test edge case: dodge in a corner between wall and floor
-  - [ ] 96. Test edge case: jump into ceiling at point-blank range
-  - [ ] 97. Test edge case: rapid direction switching (A→D→A quickly)
-  - [ ] 98. Test edge case: dodge at platform edge (no teleporting through floor)
-  - [ ] 99. Test edge case: multiple jump presses in a single frame
-  - [ ] 100. Test edge case: jump + hold direction into wall — slide along wall, no stick
-  - [ ] 101. Test edge case: stand in 90° corner, hold into wall — no penetration
+  - [ ] 91. Tune `WalkSpeed`, `RunSpeed`, `Acceleration`, `Deceleration` via ScriptableObject in Play Mode
+  - [ ] 92. Tune `AirAcceleration`, `AirDeceleration` — balance responsiveness vs momentum
+  - [ ] 93. Tune `JumpHeight`, `TimeToApex`, `TimeToDescent`, `LowJumpMultiplier`, `MaxFallSpeed`
+  - [ ] 94. Tune `CoyoteTime`, `JumpBufferTime`
+  - [ ] 95. Tune `DodgeDistance`, `DodgeSpeed`
+  - [ ] 96. Add debug FSM display: show current top-level state name + sub-state name in `OnGUI()` or Console log
+  - [ ] 97. Add Gizmos: velocity vector, dodge distance preview
+  - [ ] 98. Test edge case: dodge in a corner between wall and floor
+  - [ ] 99. Test edge case: jump into ceiling at point-blank range
+  - [ ] 100. Test edge case: rapid direction switching (A→D→A quickly)
+  - [ ] 101. Test edge case: dodge at platform edge (no teleporting through floor)
+  - [ ] 102. Test edge case: multiple jump presses in a single frame
+  - [ ] 103. Test edge case: jump + hold direction into wall — slide along wall, no stick
+  - [ ] 104. Test edge case: stand in 90° corner, hold into wall — no penetration

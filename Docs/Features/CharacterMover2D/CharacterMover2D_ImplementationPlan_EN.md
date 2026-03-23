@@ -1,5 +1,5 @@
 # CharacterMover2D — Implementation Plan
-> Project: Protocol | Based on GDD v4.0.0
+> Project: Protocol | Based on GDD v4.1.0
 
 ---
 
@@ -312,29 +312,123 @@ Using `isPressed` instead of `wasPressedThisFrame` — holding S chains drop-thr
 
 ## Phase 5 — Dodge
 
-**Goal:** horizontal dodge available from any WalkingState sub-state.
+**Goal:** horizontal dodge available from any WalkingState sub-state, with precise distance control via distance-based tracking.
 
 ### 5.1 DodgeConfig (ScriptableObject)
-- Parameters: `dodgeDistance`, `dodgeTime`
-- Computed: `dodgeSpeed = dodgeDistance / dodgeTime`
 
-### 5.2 DodgeState (Top-Level FSM)
-- Entry: dodge button pressed. Transition WalkingState→DodgeState at the top level
-- `OnEnter()`: zero out `velocity.y`, lock dodge direction, start timer
-- `Tick()`: move character horizontally at `dodgeSpeed` in the locked direction
-- `OnExit()`: nothing specific
-- Transition DodgeState→WalkingState: when `dodgeTime` expires
+Create `DodgeConfig` with two serialized fields and one computed property:
 
-### 5.3 Top-Level FSM Transition Registration
-- `WalkingState → DodgeState`: dodge input
-- `DodgeState → WalkingState`: dodge timer expired
-- Ensure `WalkingState.OnEnter()` calls `ResolveSubState()` — after a mid-air dodge it must enter Fall, not Idle
+- `DodgeDistance` (float) — how far the dodge moves, in units
+- `DodgeSpeed` (float) — how fast the dodge moves, in units per second
+- `DodgeTime` (float, computed read-only property) — `DodgeDistance / DodgeSpeed`. Not used by `DodgeState` for completion — exists for external systems (animation length, i-frames, UI)
 
-### 5.4 Verification
-- Dodge from Idle, Walk, Run — horizontal displacement of `dodgeDistance`
-- Dodge from Jump and Fall — vertical velocity resets, character hovers and moves horizontally
-- After a mid-air dodge — character starts falling (Fall), not standing (Idle)
-- Dodge into a wall — no penetration into collider
+Create an asset instance with placeholder values (e.g., distance 3, speed 15).
+
+### 5.2 Dodge State on CharacterMover2D — Request/Consume Pattern
+
+Add dodge-related state to `CharacterMover2D`, following the same pattern as jump:
+
+- `IsDodgeRequested` (bool, public property) — set by `Dodge()`, cleared by `ConsumeDodgeRequest()`
+- `DodgeDirection` (Vector2, public property) — direction captured from `Dodge()` call
+- `ConsumeDodgeRequest()` (public method) — sets `IsDodgeRequested = false`
+
+Update the existing `Dodge(Vector2 direction)` method (currently an empty stub from Phase 0) to set `IsDodgeRequested = true` and store `DodgeDirection = direction`.
+
+### 5.3 DodgeState (Top-Level FSM State)
+
+Create `DodgeState` implementing `IState, ITickable`. Constructor receives `CharacterMover2D` reference and `DodgeConfig`.
+
+**Fields:**
+- `_remainingDistance` (float) — distance left to cover, decremented each tick
+- `_direction` (float) — captured dodge direction sign (+1 or -1)
+
+**OnEnter():**
+1. Read `DodgeDirection` from `CharacterMover2D` and extract the horizontal sign (`Mathf.Sign(direction.x)`). If `direction.x == 0`, use the character's facing direction or default to +1
+2. Call `_mover.ConsumeDodgeRequest()` — clear the request flag
+3. Set `Velocity.y = 0` — airborne dodge acts as horizontal hover
+4. Set `_remainingDistance = _config.DodgeDistance`
+
+**Tick(float deltaTime):**
+```
+maxStep = DodgeSpeed * deltaTime
+
+if (maxStep >= _remainingDistance)
+    // Last frame: clamp velocity to cover exactly the remaining distance
+    Velocity = new Vector2((_remainingDistance / deltaTime) * _direction, 0f)
+    _remainingDistance = 0f
+else
+    Velocity = new Vector2(DodgeSpeed * _direction, 0f)
+    _remainingDistance -= maxStep
+```
+
+Key detail: `_remainingDistance` is decremented by `maxStep` (the *intended* step), not by actual displacement after collision resolution. This means dodging into a wall spends distance against the wall — the dodge ends on schedule rather than hovering indefinitely.
+
+**IsFinished** (public bool property): returns `_remainingDistance <= 0f`.
+
+**OnExit():** no specific cleanup needed.
+
+### 5.4 Top-Level FSM Transition Registration
+
+Register two transitions in `CharacterMover2D` during initialization, after creating both states:
+
+```csharp
+// CharacterMover2D holds typed references:
+// private WalkingState _walkingState;
+// private DodgeState _dodgeState;
+
+_topFsm.AddTransition(_walkingState, _dodgeState,
+    () => IsDodgeRequested);
+
+_topFsm.AddTransition(_dodgeState, _walkingState,
+    () => _dodgeState.IsFinished);
+```
+
+`_walkingState` and `_dodgeState` are stored as their concrete types (not `IState`) so that transition conditions can read state-specific properties like `IsFinished`. The `StateMachine<IState>` stores them internally as `IState` — the concrete references are only used by the owner.
+
+Order of evaluation: `WalkingState→DodgeState` is registered before `DodgeState→WalkingState`. When the current state is `WalkingState`, only the first transition is relevant (because `From == CurrentState`). When the current state is `DodgeState`, only the second is relevant. No ordering conflicts.
+
+### 5.5 ResolveSubState Verification
+
+`WalkingState.OnEnter()` already calls `ResolveSubState()`, which picks the correct sub-state based on current conditions. This was implemented in Phase 2 and extended in Phase 3. After a mid-air dodge:
+- `IsGrounded` is `false` → `ResolveSubState()` enters `FallSubState`
+- Character begins falling with gravity
+
+After a grounded dodge:
+- `IsGrounded` is `true` + input state → enters Idle, Walk, or Run accordingly
+
+No new code is needed — only verification that the existing implementation handles post-dodge re-entry correctly.
+
+### 5.6 PlayerInputReader — Dodge Binding
+
+Add dodge input to `PlayerInputReader`:
+
+```csharp
+if (kb.leftShiftKey.wasPressedThisFrame)
+{
+    float horizontal = 0f;
+    if (kb.aKey.isPressed) horizontal -= 1f;
+    if (kb.dKey.isPressed) horizontal += 1f;
+
+    // If no direction held, dodge in facing direction (default: right)
+    if (horizontal == 0f) horizontal = 1f;
+
+    _mover.Dodge(new Vector2(horizontal, 0f));
+}
+```
+
+> **Note:** The dodge key binding (Shift) is a placeholder for testing. Shift is currently also used for Run detection (`IsRunRequested`). For the prototype, this is acceptable — the interaction is: tap Shift = dodge, hold Shift = run. `wasPressedThisFrame` fires on the first frame of the press, so dodge triggers before run. Final binding will be determined during Phase 7 polish or when the input system is formalized.
+
+### 5.7 Verification
+
+- Dodge from Idle, Walk, Run — character moves exactly `DodgeDistance` units horizontally (measure in Scene View with a ruler or debug Gizmo)
+- Dodge from Jump and Fall — vertical velocity resets to zero, character moves horizontally then falls
+- After a mid-air dodge — character enters FallSubState (not Idle)
+- After a grounded dodge — character enters the correct sub-state based on input (Idle/Walk/Run)
+- Dodge into a wall — no penetration, dodge ends on schedule (does not hover against wall)
+- Dodge off a platform edge — character completes remaining dodge distance in the air, then falls
+- `DodgeDistance` and `DodgeSpeed` are independently tweakable in Inspector during Play Mode
+- `DodgeTime` computed property updates correctly when either serialized field changes
+- Rapid dodge spam — only one dodge per press (`wasPressedThisFrame` + consume pattern prevents re-triggering)
 
 ---
 
@@ -369,7 +463,7 @@ Using `isPressed` instead of `wasPressedThisFrame` — holding S chains drop-thr
 - Tune `airAcceleration`, `airDeceleration` — balance between responsive air control and momentum feel
 - Tune `jumpHeight`, `timeToApex`, `timeToDescent`, `lowJumpMultiplier`
 - Tune `coyoteTime`, `jumpBufferTime`
-- Tune `dodgeDistance`, `dodgeTime`
+- Tune `dodgeDistance`, `dodgeSpeed`
 
 ### 7.2 Debug Visualization
 - Display current FSM state (top-level + sub-state) in UI or Console

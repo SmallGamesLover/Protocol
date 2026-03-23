@@ -1,5 +1,5 @@
 # 2D Character Movement Component — Design Document
-> Version: 4.0.0 | Project: Protocol
+> Version: 4.1.0 | Project: Protocol
 
 ---
 
@@ -67,8 +67,27 @@ Switches between high-level states:
 | State | Description | Scope |
 |---|---|---|
 | `WalkingState` | Ground and airborne character physics. Owns an internal sub-state FSM | Prototype |
-| `DodgeState` | Horizontal dodge | Prototype |
+| `DodgeState` | Horizontal dodge with distance-based tracking | Prototype |
 | `FlyingState` | Airborne physics without gravity | Post-prototype |
+
+### Top-Level Transitions
+
+| From | To | Condition | Registration |
+|---|---|---|---|
+| `WalkingState` | `DodgeState` | `IsDodgeRequested` | `CharacterMover2D` setup |
+| `DodgeState` | `WalkingState` | `DodgeState.IsFinished` | `CharacterMover2D` setup |
+
+Transitions are registered in `CharacterMover2D` during initialization. `CharacterMover2D` holds typed references to both `WalkingState` and `DodgeState` (not just `IState`) so it can read state-specific properties like `DodgeState.IsFinished` in transition conditions. The `StateMachine<IState>` stores them as `IState` internally — the typed references are only used by the owner for transition registration.
+
+### Dodge Request/Consume Pattern
+
+Dodge uses the same request/consume pattern as jump:
+
+1. `PlayerInputReader` calls `_mover.Dodge(direction)` — sets `IsDodgeRequested = true` and stores `DodgeDirection`
+2. `_topFsm.EvaluateTransitions()` checks `IsDodgeRequested` — transitions to `DodgeState`
+3. `DodgeState.OnEnter()` calls `_mover.ConsumeDodgeRequest()` — clears the flag
+
+This ensures the request is consumed exactly once and only by the state that acts on it.
 
 ### Bottom Level — WalkingState's Internal FSM
 
@@ -188,21 +207,45 @@ fallMultiplier = (timeToApex / timeToDescent)²
 
 Configuration for `DodgeState`.
 
+### Serialized Fields
+
 | Parameter | Type | Description |
 |---|---|---|
-| `dodgeDistance` | float | Dodge distance in units |
-| `dodgeTime` | float | Time to cover the dodge distance in seconds |
+| `DodgeDistance` | float | Dodge distance in units. Designer controls exactly how far the dodge moves |
+| `DodgeSpeed` | float | Dodge speed in units per second. Designer controls how fast the dodge feels |
 
 ### Computed Value
 
 ```
-dodgeSpeed = dodgeDistance / dodgeTime
+DodgeTime = DodgeDistance / DodgeSpeed
 ```
+
+`DodgeTime` is a read-only computed property. It is not used internally by `DodgeState` for completion — the state tracks remaining distance, not elapsed time. `DodgeTime` exists for external systems that need the dodge duration (animation length, i-frames window, UI cooldown display).
+
+### Why Distance + Speed Instead of Distance + Time
+
+Two independent serialized knobs give direct control over the two most perceptible qualities of a dodge: *how far* and *how fast*. A designer can make a long slow roll or a short sharp dash without computing derived values. The time is a consequence, not a design input.
 
 ### DodgeState Behavior
 
-- Vertical velocity is reset to zero on entry — an airborne dodge acts as a "hover" with horizontal movement
-- Horizontal movement is strictly in the dodge direction
+**Distance-based tracking with last-frame clamping:**
+
+`DodgeState` tracks `_remainingDistance` instead of a timer. On each tick, it computes `maxStep = DodgeSpeed * deltaTime`. If `maxStep >= _remainingDistance`, the velocity is clamped so the character covers exactly the remaining distance in this frame: `velocity.x = (_remainingDistance / deltaTime) * direction`. Otherwise, normal dodge speed applies. `_remainingDistance` is decremented by `maxStep` (not by actual displacement after collision resolution).
+
+This guarantees the dodge covers exactly `DodgeDistance` in open space, regardless of `fixedDeltaTime` alignment. The last frame's velocity is adjusted to land precisely on target.
+
+**Wall collision behavior:** `_remainingDistance` is decremented based on *intended* step (`maxStep`), not actual displacement after `CollideAndSlide`. This means a dodge into a wall "spends" its distance against the wall and ends on time. The alternative — tracking actual displacement — would cause the character to hover against the wall for the full dodge duration, which is worse for game feel.
+
+**Entry behavior:**
+- Vertical velocity is reset to zero — an airborne dodge acts as a "hover" with horizontal movement
+- Dodge direction is captured from `DodgeDirection` on `CharacterMover2D`
+- `_remainingDistance` is set to `DodgeDistance`
+- `ConsumeDodgeRequest()` clears the request flag
+
+**Completion:** `IsFinished` returns `true` when `_remainingDistance <= 0`. The top-level FSM transition `DodgeState→WalkingState` checks this property.
+
+**General rules:**
+- Horizontal movement is strictly in the dodge direction — player input is ignored during dodge
 - Blocks shooting and reloading for the entire dodge duration
 - Available from any `WalkingState` sub-state including `Jump` and `Fall` — the transition is defined at the top HFSM level
 - On completion, returns control to `WalkingState`, which determines the correct sub-state via `ResolveSubState()`
@@ -256,9 +299,10 @@ An independent component, unaware of the input source. Whether it is driven by t
 | Method | Description |
 |---|---|
 | `Move(Vector2 direction)` | Horizontal movement. Vector2 allows using the component in `FlyingState`. WalkingState uses only `direction.x` and ignores `direction.y` |
-| `Jump()` | Jump |
-| `Dodge(Vector2 direction)` | Dodge in the specified direction |
+| `Jump()` | Jump. Sets `IsJumpRequested = true` |
+| `Dodge(Vector2 direction)` | Dodge in the specified direction. Sets `IsDodgeRequested = true` and stores `DodgeDirection` |
 | `DropThrough()` | Drop through a one-way platform. Only works when grounded on a Platform-layer collider |
+| `ConsumeDodgeRequest()` | Clears `IsDodgeRequested`. Called by `DodgeState.OnEnter()` |
 
 **Environment Checks (FixedUpdate):**
 
@@ -266,6 +310,13 @@ An independent component, unaware of the input source. Whether it is driven by t
 |---|---|---|
 | `IsGrounded` | `OverlapBox` below feet (array-based, filtered) | Used by FSM for state transitions. Platform-layer colliders are validated by positional check and `_dropThroughTarget` filter |
 | `IsCeiling` | `OverlapBox` above head (`CeilingLayerMask`, Ground only) | When true and `velocity.y > 0`, vertical velocity is zeroed. One-way platforms excluded at query level |
+
+**Dodge State:**
+
+| Field/Property | Type | Description |
+|---|---|---|
+| `IsDodgeRequested` | `bool` | Set by `Dodge()`, cleared by `ConsumeDodgeRequest()`. Checked by top-level FSM transition |
+| `DodgeDirection` | `Vector2` | Direction captured from `Dodge()` call. Read by `DodgeState.OnEnter()` |
 
 **One-way Platform State:**
 
@@ -281,7 +332,7 @@ ScriptableObject with parameters for `WalkingState`. Tweakable in the Inspector 
 A `readonly struct` that encapsulates the horizontal acceleration formula. Created fresh each frame from `WalkingConfig` properties. See the dedicated section above.
 
 ### DodgeConfig
-ScriptableObject with parameters for `DodgeState`. Tweakable in the Inspector during Play Mode without recompilation.
+ScriptableObject with parameters for `DodgeState`. Two serialized fields (`DodgeDistance`, `DodgeSpeed`) give independent control over distance and speed. `DodgeTime` is a computed read-only property for external systems. Tweakable in the Inspector during Play Mode without recompilation.
 
 ### CollisionSlideResolver2D
 A utility class responsible for one thing: resolving movement collisions via a recursive collide-and-slide algorithm. Does not move the rigidbody — returns a safe displacement vector for the caller to apply via `MovePosition`. Unaware of who calls it — used by both `WalkingState` and `FlyingState`.
