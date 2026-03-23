@@ -25,6 +25,8 @@ namespace SGL.Protocol.Runtime.Movement
         [SerializeField] private float DodgeWaitBuffer = 0.15f;
         /// <summary>Duration to walk right after the dodge in order to approach the one-way platform.</summary>
         [SerializeField] private float PlatformApproachDuration = 1.5f;
+        /// <summary>Duration of each sustained hostile input test (seconds). Default 5s per plan §6C.</summary>
+        [SerializeField] private float HostileTestDuration = 5f;
 
         private void Start()
         {
@@ -36,6 +38,8 @@ namespace SGL.Protocol.Runtime.Movement
             yield return StartCoroutine(RunScenario());
             yield return new WaitForSeconds(1f);
             yield return StartCoroutine(RunEdgeCaseTests());
+            yield return new WaitForSeconds(1f);
+            yield return StartCoroutine(RunHostileInputTests());
         }
 
         private IEnumerator RunScenario()
@@ -159,6 +163,151 @@ namespace SGL.Protocol.Runtime.Movement
             _mover.Move(Vector2.zero);
 
             Debug.Log("[AutoMoverTest] 6B edge case tests complete.");
+        }
+
+        /// <summary>
+        /// Phase 6C — Hostile input patterns.
+        /// Tests calling patterns that a human player cannot produce but an AI script can.
+        /// Results are logged to Console — observe them in Play Mode to document behavior.
+        /// Tests 6C-93 and 6C-94 require a one-way platform reachable by jumping right from
+        /// wherever the character lands after the 6B tests.
+        /// </summary>
+        private IEnumerator RunHostileInputTests()
+        {
+            yield return new WaitUntil(() => _mover.IsGrounded);
+
+            // 6C-90: Pogo-stick — Jump() called every frame
+            Debug.Log($"[AutoMoverTest] 6C-90: Jump() every frame for {HostileTestDuration}s — pogo-stick via jump buffer");
+            int groundExits90 = 0;
+            bool prevGrounded90 = true;
+            for (float t = 0f; t < HostileTestDuration; t += Time.deltaTime)
+            {
+                _mover.IsJumpHeld = true;
+                _mover.Jump();
+                bool grounded = _mover.IsGrounded;
+                if (prevGrounded90 && !grounded) groundExits90++;
+                prevGrounded90 = grounded;
+                yield return null;
+            }
+            _mover.IsJumpHeld = false;
+            yield return new WaitUntil(() => _mover.IsGrounded);
+            Debug.Log($"[AutoMoverTest] 6C-90 result: character left ground {groundExits90} time(s) in {HostileTestDuration}s. " +
+                      "Expected: >1 — FallSubState.Tick() re-captures IsJumpRequested into JumpBufferTimer each FixedUpdate; " +
+                      "buffer fires on every landing, causing infinite pogo-sticking.");
+            yield return new WaitForSeconds(0.5f);
+
+            // 6C-91: Infinite dodge chain — Dodge() called every frame
+            Debug.Log($"[AutoMoverTest] 6C-91: Dodge(right) every frame for {HostileTestDuration}s — infinite chain test");
+            int dodgeCalls91 = 0;
+            for (float t = 0f; t < HostileTestDuration; t += Time.deltaTime)
+            {
+                _mover.Dodge(Vector2.right);
+                dodgeCalls91++;
+                yield return null;
+            }
+            yield return new WaitUntil(() => _mover.IsGrounded);
+            Debug.Log($"[AutoMoverTest] 6C-91 result: Dodge() called {dodgeCalls91} times. " +
+                      "Expected: continuous chain with no gap — IsDodgeRequested=true every frame re-triggers dodge immediately " +
+                      "after each completes. Caller must enforce cooldown externally.");
+            yield return new WaitForSeconds(0.5f);
+
+            // 6C-92: Jump + Dodge in the same frame — FSM priority and phantom jump
+            Debug.Log("[AutoMoverTest] 6C-92: Jump() + Dodge(right) same frame while grounded — dodge priority and phantom jump");
+            _mover.Jump();
+            _mover.Dodge(Vector2.right);
+            // Wait for dodge to finish plus a small window for the phantom jump to start
+            float dodgeWait92 = (_dodgeConfig != null ? _dodgeConfig.DodgeTime : 0.3f) + DodgeWaitBuffer + 0.05f;
+            yield return new WaitForSeconds(dodgeWait92);
+            bool phantomJump92 = !_mover.IsGrounded && _mover.Velocity.y > 0f;
+            yield return new WaitUntil(() => _mover.IsGrounded);
+            Debug.Log($"[AutoMoverTest] 6C-92 result: phantom jump fired={phantomJump92}. " +
+                      "Expected: true — top-level FSM picks Dodge over Jump; DodgeState.OnEnter() clears IsDodgeRequested " +
+                      "but not IsJumpRequested; after dodge WalkingState sub-FSM fires CanJump() on the stale flag.");
+            yield return new WaitForSeconds(0.5f);
+
+            // 6C-95: Rapid run toggle — alternating IsRunRequested every frame with constant input
+            Debug.Log($"[AutoMoverTest] 6C-95: IsRunRequested toggles every frame for {HostileTestDuration}s — rapid Walk↔Run sub-FSM switching");
+            bool runToggle = false;
+            for (float t = 0f; t < HostileTestDuration; t += Time.deltaTime)
+            {
+                runToggle = !runToggle;
+                _mover.IsRunRequested = runToggle;
+                _mover.Move(Vector2.right);
+                yield return null;
+            }
+            _mover.IsRunRequested = false;
+            _mover.Move(Vector2.zero);
+            Debug.Log("[AutoMoverTest] 6C-95 result: Walk↔Run sub-FSM transitions fire every FixedUpdate. " +
+                      "Functionally correct. Concern: rapid OnEnter/OnExit calls are a hazard for future " +
+                      "sound/particle/animation side effects attached to state transitions.");
+            yield return new WaitForSeconds(0.5f);
+
+            // 6C-96: Rapid move toggle — alternating Move(right)/Move(zero) every frame
+            Debug.Log($"[AutoMoverTest] 6C-96: Move alternates right/zero every frame for {HostileTestDuration}s — rapid Idle↔Walk sub-FSM switching");
+            bool moveToggle = false;
+            for (float t = 0f; t < HostileTestDuration; t += Time.deltaTime)
+            {
+                moveToggle = !moveToggle;
+                _mover.Move(moveToggle ? Vector2.right : Vector2.zero);
+                yield return null;
+            }
+            _mover.Move(Vector2.zero);
+            Debug.Log("[AutoMoverTest] 6C-96 result: Idle↔Walk sub-FSM transitions fire every FixedUpdate. " +
+                      "Same concern as 6C-95.");
+            yield return new WaitForSeconds(0.5f);
+
+            // --- Platform-based tests: navigate to a one-way platform ---
+            Debug.Log("[AutoMoverTest] 6C-93/94: Navigating to one-way platform (jump right)");
+            yield return new WaitUntil(() => _mover.IsGrounded);
+            _mover.IsJumpHeld = true;
+            _mover.Jump();
+            yield return new WaitUntil(() => !_mover.IsGrounded);
+            yield return WalkFor(Vector2.right, PlatformApproachDuration);
+            yield return new WaitUntil(() => _mover.IsGrounded);
+            _mover.IsJumpHeld = false;
+            _mover.Move(Vector2.zero);
+            yield return new WaitForSeconds(0.3f);
+
+            // 6C-93: Platform cascade — DropThrough() every frame on stacked platforms
+            Debug.Log($"[AutoMoverTest] 6C-93: DropThrough() every frame for {HostileTestDuration}s — cascade test");
+            int dropCalls93 = 0;
+            for (float t = 0f; t < HostileTestDuration; t += Time.deltaTime)
+            {
+                _mover.DropThrough();
+                dropCalls93++;
+                yield return null;
+            }
+            yield return new WaitUntil(() => _mover.IsGrounded);
+            Debug.Log($"[AutoMoverTest] 6C-93 result: DropThrough() called {dropCalls93} times. " +
+                      "Expected: character cascades through all stacked platforms (matches hold-S in PlayerInputReader). " +
+                      "If scene has no stacked platforms, DropThrough() was no-op after the first fall.");
+            yield return new WaitForSeconds(0.5f);
+
+            // Navigate back to platform for test 94
+            yield return new WaitUntil(() => _mover.IsGrounded);
+            _mover.IsJumpHeld = true;
+            _mover.Jump();
+            yield return new WaitUntil(() => !_mover.IsGrounded);
+            yield return WalkFor(Vector2.right, PlatformApproachDuration);
+            yield return new WaitUntil(() => _mover.IsGrounded);
+            _mover.IsJumpHeld = false;
+            _mover.Move(Vector2.zero);
+            yield return new WaitForSeconds(0.3f);
+
+            // 6C-94: DropThrough + Jump same frame — expected: jump is lost
+            Debug.Log("[AutoMoverTest] 6C-94: DropThrough() then Jump() same frame on one-way platform — lost jump test");
+            _mover.DropThrough();
+            _mover.Jump();
+            // After 0.1s, if the jump fired: Velocity.y > 0 and not grounded.
+            // If dropped through: Velocity.y < 0 and not grounded.
+            yield return new WaitForSeconds(0.1f);
+            bool jumpedNotDropped = !_mover.IsGrounded && _mover.Velocity.y > 0f;
+            yield return new WaitUntil(() => _mover.IsGrounded);
+            Debug.Log($"[AutoMoverTest] 6C-94 result: character ascending after call (jump fired)={jumpedNotDropped}. " +
+                      "Expected: false — DropThrough() sets _dropThroughTarget; next FixedUpdate CheckGround() excludes it, " +
+                      "IsGrounded becomes false, CanJump() fails, jump is lost. Character drops through without jumping.");
+
+            Debug.Log("[AutoMoverTest] 6C hostile input tests complete.");
         }
 
         /// <summary>Calls Move() with the given direction each frame for the specified duration.</summary>

@@ -106,18 +106,18 @@
     - [x] 87. Call `Move(new Vector2(5f, 0f))` — verify character moves at normal walk speed (not 5×). Confirms `HorizontalMoveParams.Apply()` uses `Sign(input)`, not raw magnitude
     - [x] 88. Call `Move(new Vector2(1f, 1f))` — verify `direction.y` is ignored by `WalkingState`, no vertical velocity change, no errors
     - [x] 89. Set `IsJumpHeld = true` permanently, call `Jump()` once — verify full-height jump (low-jump multiplier never activates). Document as expected default behavior for AI
-  - [ ] **6C — Hostile input patterns**
-    - [ ] 90. **Pogo-stick test:** call `Jump()` every `Update()` for 5+ seconds. Observe whether the character chain-jumps infinitely via jump buffer on landing frames. Document the result
-    - [ ] 91. **Infinite dodge chain:** call `Dodge(Vector2.right)` every `Update()` for 5+ seconds. Observe whether dodges chain with no gap between them. Document the result and note that caller-side cooldown is needed if this is unacceptable
-    - [ ] 92. **Jump + Dodge same frame:** call both `Jump()` and `Dodge(Vector2.right)` in the same `Update()` while grounded. Observe: dodge should win (top-level FSM priority). After dodge completes, observe whether a phantom jump occurs from the unconsumed `IsJumpRequested` flag. Document the frame sequence
-    - [ ] 93. **Platform cascade:** call `DropThrough()` every `Update()` while on stacked one-way platforms. Confirm the character falls through all platforms (matching `PlayerInputReader` hold-S behavior)
-    - [ ] 94. **DropThrough + Jump same frame:** call `DropThrough()` then `Jump()` in the same `Update()` on a one-way platform. Observe whether jump is lost because ground check returns `false` due to `_dropThroughTarget`. Document the execution order
-    - [ ] 95. **Rapid run toggle:** alternate `IsRunRequested` between `true`/`false` every frame with constant horizontal input. Observe sub-FSM switching between Walk and Run every `FixedUpdate`. Document rapid `OnEnter`/`OnExit` frequency as a concern for future side effects (sounds, particles)
-    - [ ] 96. **Rapid move toggle:** alternate `Move(Vector2.right)` and `Move(Vector2.zero)` every frame. Observe sub-FSM switching between Walk and Idle every `FixedUpdate`. Same concern as task 95
-  - [ ] **6D — Code audit**
-    - [ ] 97. Confirm `CharacterMover2D.cs` has zero `using UnityEngine.InputSystem` imports and zero references to `Keyboard` or `Mouse`
-    - [ ] 98. Confirm the only file in the project that references `Keyboard.current` or `Mouse.current` is `PlayerInputReader.cs`
-    - [ ] 99. Confirm zero uses of legacy `UnityEngine.Input` anywhere in the project
+  - [x] **6C — Hostile input patterns**
+    - [x] 90. **Pogo-stick test:** call `Jump()` every `Update()` for 5+ seconds. Observe whether the character chain-jumps infinitely via jump buffer on landing frames. Document the result
+    - [x] 91. **Infinite dodge chain:** call `Dodge(Vector2.right)` every `Update()` for 5+ seconds. Observe whether dodges chain with no gap between them. Document the result and note that caller-side cooldown is needed if this is unacceptable
+    - [x] 92. **Jump + Dodge same frame:** call both `Jump()` and `Dodge(Vector2.right)` in the same `Update()` while grounded. Observe: dodge should win (top-level FSM priority). After dodge completes, observe whether a phantom jump occurs from the unconsumed `IsJumpRequested` flag. Document the frame sequence
+    - [x] 93. **Platform cascade:** call `DropThrough()` every `Update()` while on stacked one-way platforms. Confirm the character falls through all platforms (matching `PlayerInputReader` hold-S behavior)
+    - [x] 94. **DropThrough + Jump same frame:** call `DropThrough()` then `Jump()` in the same `Update()` on a one-way platform. Observe whether jump is lost because ground check returns `false` due to `_dropThroughTarget`. Document the execution order
+    - [x] 95. **Rapid run toggle:** alternate `IsRunRequested` between `true`/`false` every frame with constant horizontal input. Observe sub-FSM switching between Walk and Run every `FixedUpdate`. Document rapid `OnEnter`/`OnExit` frequency as a concern for future side effects (sounds, particles)
+    - [x] 96. **Rapid move toggle:** alternate `Move(Vector2.right)` and `Move(Vector2.zero)` every frame. Observe sub-FSM switching between Walk and Idle every `FixedUpdate`. Same concern as task 95
+  - [x] **6D — Code audit**
+    - [x] 97. Confirm `CharacterMover2D.cs` has zero `using UnityEngine.InputSystem` imports and zero references to `Keyboard` or `Mouse`
+    - [x] 98. Confirm the only file in the project that references `Keyboard.current` or `Mouse.current` is `PlayerInputReader.cs`
+    - [x] 99. Confirm zero uses of legacy `UnityEngine.Input` anywhere in the project
   - [ ] **6E — Cleanup**
     - [ ] 100. Delete `AutoMoverTest` (temporary test script)
     - [ ] 101. Re-enable `PlayerInputReader` on the player GameObject
