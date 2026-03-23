@@ -1,5 +1,5 @@
 # CharacterMover2D — Tasks
-> Based on Implementation Plan v4.1.0
+> Based on Implementation Plan v4.2.0
 > Tasks are ordered chronologically. Complete each stage top-to-bottom before moving to the next.
 
 - [x] Phase 0: Scene setup and stubs
@@ -97,27 +97,44 @@
   - [x] 82. Add dodge input to `PlayerInputReader`: on `leftShiftKey.wasPressedThisFrame`, read current A/D direction (default to +1 if none), call `_mover.Dodge(new Vector2(horizontal, 0f))`
   - [x] 83. Verify: dodge from Idle/Walk/Run covers exactly `DodgeDistance` (measure in Scene View), dodge from Jump/Fall zeroes vertical velocity and moves horizontally, after mid-air dodge character falls (not idle), after grounded dodge character enters correct sub-state, dodge into wall ends on schedule with no penetration, dodge off platform edge completes remaining distance in air then falls, `DodgeDistance` and `DodgeSpeed` tweakable in Inspector during Play Mode, rapid dodge spam does not re-trigger (consume pattern)
 
-- [ ] Phase 6: Input/movement separation verification (no new code — only testing)
-  - [ ] 84. Disable `PlayerInputReader` on the player GameObject
-  - [ ] 85. Create a temporary test MonoBehaviour `AutoMoverTest` that calls `_mover.Move(Vector2.right)` in `Update()`. Attach to player — verify character moves right without keyboard
-  - [ ] 86. Add `_mover.Jump()` call on a timer in `AutoMoverTest` — verify character jumps without key presses
-  - [ ] 87. Confirm `CharacterMover2D.cs` has zero `using UnityEngine.InputSystem` imports and zero references to `Keyboard` or `Mouse`
-  - [ ] 88. Confirm the only file in the project that references `Keyboard.current` or `Mouse.current` is `PlayerInputReader.cs`
-  - [ ] 89. Confirm zero uses of legacy `UnityEngine.Input` anywhere in the project
-  - [ ] 90. Delete `AutoMoverTest`, re-enable `PlayerInputReader`
+- [ ] Phase 6: Input/movement separation verification and hostile input testing
+  - [x] **6A — Full API smoke test**
+    - [x] 84. Disable `PlayerInputReader` on the player GameObject
+    - [x] 85. Create `AutoMoverTest` MonoBehaviour with a coroutine-based scenario that exercises every public API method in sequence: `Move(Vector2.right)` for ~1s → `Jump()` → wait for takeoff (`_mover.IsGrounded == false)` → mid-air `Move(Vector2.left)` → wait for landing → `Dodge(Vector2.right)` → wait for completion → walk onto one-way platform → `DropThrough()` → wait for landing below
+    - [x] 86. Attach `AutoMoverTest` to the player, enter Play Mode. Verify the full sequence completes without keyboard — character walks, jumps, changes air direction, dodges, and drops through a platform
+  - [ ] **6B — Input value edge cases**
+    - [ ] 87. Call `Move(new Vector2(5f, 0f))` — verify character moves at normal walk speed (not 5×). Confirms `HorizontalMoveParams.Apply()` uses `Sign(input)`, not raw magnitude
+    - [ ] 88. Call `Move(new Vector2(1f, 1f))` — verify `direction.y` is ignored by `WalkingState`, no vertical velocity change, no errors
+    - [ ] 89. Set `IsJumpHeld = true` permanently, call `Jump()` once — verify full-height jump (low-jump multiplier never activates). Document as expected default behavior for AI
+  - [ ] **6C — Hostile input patterns**
+    - [ ] 90. **Pogo-stick test:** call `Jump()` every `Update()` for 5+ seconds. Observe whether the character chain-jumps infinitely via jump buffer on landing frames. Document the result
+    - [ ] 91. **Infinite dodge chain:** call `Dodge(Vector2.right)` every `Update()` for 5+ seconds. Observe whether dodges chain with no gap between them. Document the result and note that caller-side cooldown is needed if this is unacceptable
+    - [ ] 92. **Jump + Dodge same frame:** call both `Jump()` and `Dodge(Vector2.right)` in the same `Update()` while grounded. Observe: dodge should win (top-level FSM priority). After dodge completes, observe whether a phantom jump occurs from the unconsumed `IsJumpRequested` flag. Document the frame sequence
+    - [ ] 93. **Platform cascade:** call `DropThrough()` every `Update()` while on stacked one-way platforms. Confirm the character falls through all platforms (matching `PlayerInputReader` hold-S behavior)
+    - [ ] 94. **DropThrough + Jump same frame:** call `DropThrough()` then `Jump()` in the same `Update()` on a one-way platform. Observe whether jump is lost because ground check returns `false` due to `_dropThroughTarget`. Document the execution order
+    - [ ] 95. **Rapid run toggle:** alternate `IsRunRequested` between `true`/`false` every frame with constant horizontal input. Observe sub-FSM switching between Walk and Run every `FixedUpdate`. Document rapid `OnEnter`/`OnExit` frequency as a concern for future side effects (sounds, particles)
+    - [ ] 96. **Rapid move toggle:** alternate `Move(Vector2.right)` and `Move(Vector2.zero)` every frame. Observe sub-FSM switching between Walk and Idle every `FixedUpdate`. Same concern as task 95
+  - [ ] **6D — Code audit**
+    - [ ] 97. Confirm `CharacterMover2D.cs` has zero `using UnityEngine.InputSystem` imports and zero references to `Keyboard` or `Mouse`
+    - [ ] 98. Confirm the only file in the project that references `Keyboard.current` or `Mouse.current` is `PlayerInputReader.cs`
+    - [ ] 99. Confirm zero uses of legacy `UnityEngine.Input` anywhere in the project
+  - [ ] **6E — Cleanup**
+    - [ ] 100. Delete `AutoMoverTest` (temporary test script)
+    - [ ] 101. Re-enable `PlayerInputReader` on the player GameObject
+    - [ ] 102. Document findings from tasks 87–96 in `CharacterMover2D_Notes.md` under a new section "API Behavioral Notes — Hostile Input Patterns"
 
 - [ ] Phase 7: Polish and tweaking
-  - [ ] 91. Tune `WalkSpeed`, `RunSpeed`, `Acceleration`, `Deceleration` via ScriptableObject in Play Mode
-  - [ ] 92. Tune `AirAcceleration`, `AirDeceleration` — balance responsiveness vs momentum
-  - [ ] 93. Tune `JumpHeight`, `TimeToApex`, `TimeToDescent`, `LowJumpMultiplier`, `MaxFallSpeed`
-  - [ ] 94. Tune `CoyoteTime`, `JumpBufferTime`
-  - [ ] 95. Tune `DodgeDistance`, `DodgeSpeed`
-  - [ ] 96. Add debug FSM display: show current top-level state name + sub-state name in `OnGUI()` or Console log
-  - [ ] 97. Add Gizmos: velocity vector, dodge distance preview
-  - [ ] 98. Test edge case: dodge in a corner between wall and floor
-  - [ ] 99. Test edge case: jump into ceiling at point-blank range
-  - [ ] 100. Test edge case: rapid direction switching (A→D→A quickly)
-  - [ ] 101. Test edge case: dodge at platform edge (no teleporting through floor)
-  - [ ] 102. Test edge case: multiple jump presses in a single frame
-  - [ ] 103. Test edge case: jump + hold direction into wall — slide along wall, no stick
-  - [ ] 104. Test edge case: stand in 90° corner, hold into wall — no penetration
+  - [ ] 103. Tune `WalkSpeed`, `RunSpeed`, `Acceleration`, `Deceleration` via ScriptableObject in Play Mode
+  - [ ] 104. Tune `AirAcceleration`, `AirDeceleration` — balance responsiveness vs momentum
+  - [ ] 105. Tune `JumpHeight`, `TimeToApex`, `TimeToDescent`, `LowJumpMultiplier`, `MaxFallSpeed`
+  - [ ] 106. Tune `CoyoteTime`, `JumpBufferTime`
+  - [ ] 107. Tune `DodgeDistance`, `DodgeSpeed`
+  - [ ] 108. Add debug FSM display: show current top-level state name + sub-state name in `OnGUI()` or Console log
+  - [ ] 109. Add Gizmos: velocity vector, dodge distance preview
+  - [ ] 110. Test edge case: dodge in a corner between wall and floor
+  - [ ] 111. Test edge case: jump into ceiling at point-blank range
+  - [ ] 112. Test edge case: rapid direction switching (A→D→A quickly)
+  - [ ] 113. Test edge case: dodge at platform edge (no teleporting through floor)
+  - [ ] 114. Test edge case: multiple jump presses in a single frame
+  - [ ] 115. Test edge case: jump + hold direction into wall — slide along wall, no stick
+  - [ ] 116. Test edge case: stand in 90° corner, hold into wall — no penetration

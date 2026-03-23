@@ -1,5 +1,5 @@
 # CharacterMover2D — Implementation Plan
-> Project: Protocol | Based on GDD v4.1.0
+> Project: Protocol | Based on GDD v4.2.0
 
 ---
 
@@ -432,25 +432,84 @@ if (kb.leftShiftKey.wasPressedThisFrame)
 
 ---
 
-## Phase 6 — Input/Movement Separation Verification
+## Phase 6 — Input/Movement Separation Verification and Hostile Input Testing
 
-**Goal:** confirm that CharacterMover2D is fully independent of the input source and ready for AI integration.
+**Goal:** confirm that `CharacterMover2D` is fully independent of the input source, covers the full public API from an external caller, and behaves predictably under edge-case calling patterns that differ from human input. No new production code is written in this phase — only temporary test scripts and code audits.
 
-> `PlayerInputReader` was created in Phase 0.3 and has been used for testing throughout all previous phases. This phase does not create new input code — it verifies that the separation works.
+> `PlayerInputReader` was created in Phase 0.3 and has been used for testing throughout all previous phases. This phase does not create new input code — it verifies that the separation works and documents behavioral properties under non-human calling patterns.
 
-### 6.1 Input Source Independence Test
-- Disable `PlayerInputReader` on the character object
-- Attach a test script that calls `_mover.Move(Vector2.right)` every frame — character moves right without keyboard involvement
-- Call `_mover.Jump()` on a timer — character jumps without key presses
-- Verify that CharacterMover2D contains no `using UnityEngine.InputSystem` and no references to `Keyboard` / `Mouse`
+### 6.1 Full API Smoke Test — AutoMoverTest
 
-### 6.2 AI Readiness Check
-- The same test script simulates future AI enemy behavior: moves toward a point, jumps when necessary
-- CharacterMover2D behaves identically regardless of whether methods are called by `PlayerInputReader` or the test script
+Create a temporary MonoBehaviour `AutoMoverTest` that drives `CharacterMover2D` through a sequential scenario using a coroutine, covering every public API method. This is not AI — it is a scripted sequence that verifies the component works without `PlayerInputReader`.
 
-### 6.3 Project Cleanliness
-- No calls to `UnityEngine.Input` (legacy API) anywhere in the project
-- All references to `Keyboard.current` / `Mouse.current` are only inside `PlayerInputReader`
+Scenario sequence:
+1. `Move(Vector2.right)` for 1 second — character walks right
+2. `Jump()` — character jumps
+3. Wait for takeoff (`IsGrounded` becomes false)
+4. Mid-air: `Move(Vector2.left)` — air control direction change
+5. Wait for landing (`IsGrounded` becomes true)
+6. `Dodge(Vector2.right)` — grounded dodge
+7. Wait for dodge completion
+8. Walk onto a one-way platform, call `DropThrough()` — character drops through
+9. Wait for landing on the surface below
+
+Test procedure:
+- Disable `PlayerInputReader` on the player GameObject
+- Attach `AutoMoverTest`, enter Play Mode
+- Observe: character completes the full sequence without keyboard involvement
+- Confirm each action produces the expected behavior visually
+
+### 6.2 Input Value Edge Cases
+
+After the sequential smoke test, extend `AutoMoverTest` (or create separate test methods) to verify input edge cases:
+
+**6.2.1 — Move() with non-normalized input.**
+Call `Move(new Vector2(5f, 0f))`. Expected: character moves at normal walk speed, not 5× speed. Confirms that `HorizontalMoveParams.Apply()` uses `Sign(input)`, not raw magnitude.
+
+**6.2.2 — Move() with direction.y != 0.**
+Call `Move(new Vector2(1f, 1f))`. Expected: character walks right, `direction.y` is ignored by `WalkingState`. No vertical velocity change, no errors.
+
+**6.2.3 — IsJumpHeld permanently true.**
+Set `IsJumpHeld = true` and never release. Call `Jump()` once. Expected: character performs a full-height jump (low-jump multiplier never activates). This is expected behavior for AI — document it, not fix it.
+
+### 6.3 Hostile Input Patterns
+
+Test calling patterns that a human player cannot produce but an AI script can. Each test runs for several seconds in Play Mode with visual observation and Console logging. The goal is to document actual behavior, not necessarily to fix it — some patterns may produce acceptable results that simply need to be known.
+
+**6.3.1 — Jump() every frame (pogo-stick test).**
+Call `Jump()` in every `Update()`. Observe: does the character chain-jump infinitely without touching the ground for more than one frame? If jump buffer captures the request during the landing frame and immediately fires, the character becomes a pogo stick. Document whether this happens and whether it is acceptable for AI enemies.
+
+**6.3.2 — Dodge() every frame (infinite chain test).**
+Call `Dodge(Vector2.right)` in every `Update()`. Observe: after each dodge completes, does a new dodge start immediately? Expected: yes — `IsDodgeRequested` is set before the transition back to `WalkingState`, so the next `EvaluateTransitions()` fires `WalkingState → DodgeState` immediately. Document the behavior. If infinite dodge chaining is unacceptable for gameplay, note that a cooldown must be enforced by the caller (AI controller), not by `CharacterMover2D`.
+
+**6.3.3 — Jump() + Dodge() in the same frame (priority and phantom jump test).**
+Call both `Jump()` and `Dodge(Vector2.right)` in the same `Update()` while grounded. Observe: dodge should win (top-level FSM evaluates before sub-FSM). After the dodge completes, does a phantom jump occur? If `IsJumpRequested` was not consumed during the dodge and remains `true`, the character may jump immediately on returning to `WalkingState`. Document the behavior and the frame sequence.
+
+**6.3.4 — DropThrough() every frame (platform cascade test).**
+Call `DropThrough()` in every `Update()` while standing on stacked one-way platforms. Expected: character falls through all platforms consecutively (same as holding S key). Confirm this matches the `PlayerInputReader` behavior.
+
+**6.3.5 — DropThrough() + Jump() in the same frame (lost jump test).**
+Call `DropThrough()` followed by `Jump()` in the same `Update()` while standing on a one-way platform. Observe: does the ground check return `false` (due to `_dropThroughTarget` filtering) before the jump transition can evaluate? If so, jump is lost and the character simply drops. Document the execution order and result.
+
+**6.3.6 — IsRunRequested toggling every frame (rapid state switching test).**
+Alternate `IsRunRequested` between `true` and `false` on consecutive frames while providing constant horizontal input. Observe: sub-FSM alternates between `WalkSubState` and `RunSubState` every `FixedUpdate`. Expected: functionally correct but produces rapid `OnEnter`/`OnExit` calls. Document as a consideration for future systems that attach side effects (sounds, particles) to state transitions.
+
+**6.3.7 — Move() alternating between zero and non-zero every frame.**
+Alternate `Move(Vector2.right)` and `Move(Vector2.zero)` on consecutive frames. Similar to 6.3.6 — sub-FSM alternates between `IdleSubState` and `WalkSubState`. Document the rapid switching behavior.
+
+### 6.4 Code Audit — Dependency Cleanliness
+
+Verify structural separation in the codebase:
+
+- Confirm `CharacterMover2D.cs` has zero `using UnityEngine.InputSystem` imports and zero references to `Keyboard` or `Mouse`
+- Confirm the only file in the project that references `Keyboard.current` or `Mouse.current` is `PlayerInputReader.cs`
+- Confirm zero uses of legacy `UnityEngine.Input` anywhere in the project
+
+### 6.5 Cleanup
+
+- Delete `AutoMoverTest` (temporary test script)
+- Re-enable `PlayerInputReader` on the player GameObject
+- Document findings from 6.2–6.3 in `CharacterMover2D_Notes.md` under a new section "API Behavioral Notes — Hostile Input Patterns"
 
 ---
 
@@ -491,8 +550,8 @@ if (kb.leftShiftKey.wasPressedThisFrame)
 | 3 | Jump, fall, ceiling check, and air control | 10–14 |
 | 4 | One-way platforms + drop-through | 8–12 |
 | 5 | Dodge | 5–8 |
-| 6 | Input/movement separation verification | 1–2 |
+| 6 | Input/movement separation + hostile input testing | 3–5 |
 | 7 | Polish and tweaking | 5–8 |
-| **Total** | | **43–67** |
+| **Total** | | **45–70** |
 
 > The riskiest phases in terms of time are 2, 3, and 4. Kinematic Rigidbody requires manual collision handling, and one-way platforms without PlatformEffector2D are a separate challenge. If Phase 4 starts consuming disproportionate time — consider a temporary switch to Dynamic Rigidbody with direct velocity control to unblock other prototype systems.

@@ -1,5 +1,5 @@
 # 2D Character Movement Component — Design Document
-> Version: 4.1.0 | Project: Protocol
+> Version: 4.2.0 | Project: Protocol
 
 ---
 
@@ -357,3 +357,36 @@ Vector2 displacement = _collisionResolver.CollideAndSlide(
     Velocity * deltaTime, _contactFilter, ShouldIgnorePlatformHit);
 _rigidbody.MovePosition(_rigidbody.position + displacement);
 ```
+
+---
+
+## Public API Behavioral Contract
+
+`CharacterMover2D` is designed to be driven by any external caller — player input, AI agent, test harness, or replay system. The public API makes no assumptions about call frequency, ordering, or caller identity. This section documents the expected behavior under edge-case calling patterns that differ from typical human input.
+
+### Request/Consume Guarantees
+
+Both `Jump()` and `Dodge()` use the Request/Consume pattern: calling the method sets a boolean flag; the FSM transition consumes it via `ConsumeJumpRequest()` / `ConsumeDodgeRequest()` in the entering state's `OnEnter()`. Key behavioral properties:
+
+- **Idempotent within a frame.** Calling `Jump()` multiple times before the next `FixedUpdate` is equivalent to calling it once — the flag is already `true`.
+- **Persistent until consumed.** If the FSM cannot act on a request (e.g., `Jump()` called mid-air with no coyote/buffer), `IsJumpRequested` remains `true` until the next `EvaluateTransitions()` pass where a matching transition fires — or until the jump buffer timer expires and the flag would need external clearing. Note: `IsJumpRequested` is cleared by `ConsumeJumpRequest()` in `JumpSubState.OnEnter()`, but is NOT cleared on expiry — a stale flag may survive and cause a delayed jump on landing. This is a known edge case relevant to AI callers that set `IsJumpRequested` every frame.
+- **Dodge during dodge.** If `Dodge()` is called while `DodgeState` is active, `IsDodgeRequested` is set to `true` but the transition `WalkingState → DodgeState` cannot fire (current state is `DodgeState`, not `WalkingState`). After the current dodge completes, the flag triggers an immediate second dodge with no gap. Callers that want cooldown between dodges must enforce it externally.
+
+### Move() Input Handling
+
+- `Move(Vector2 direction)` stores `direction.x` as `HorizontalInput`. `WalkingState` sub-states use only this value. `direction.y` is stored but ignored by all current states — reserved for future `FlyingState`.
+- `HorizontalMoveParams.Apply()` uses `Mathf.Sign(input)` internally to determine direction. Non-normalized input (e.g., `direction.x = 5f`) produces the same result as `direction.x = 1f` — magnitude is irrelevant, only sign matters.
+- Rapid alternation between `Move(Vector2.right)` and `Move(Vector2.zero)` (or opposing directions) causes sub-state transitions every `FixedUpdate`. This is functionally correct but produces high-frequency `OnEnter`/`OnExit` calls. Future systems that attach side effects to state transitions (sounds, particles) should debounce or guard against rapid toggling.
+
+### Simultaneous Requests
+
+- **Jump + Dodge in the same frame.** Top-level `EvaluateTransitions()` runs before `WalkingState.Tick()`. Dodge transition is checked at the top level; jump transitions are checked inside WalkingState's sub-FSM. Dodge wins — `DodgeState.OnEnter()` consumes the dodge request but `IsJumpRequested` is not cleared. After the dodge completes, the stale jump request may fire on the next `EvaluateTransitions()` pass inside WalkingState (phantom jump). AI callers should avoid setting both flags simultaneously, or accept the phantom jump as intended behavior.
+- **DropThrough + Jump in the same frame.** `DropThrough()` sets `_dropThroughTarget`, which may cause the ground check to return `false` on the same frame. If `IsGrounded` becomes `false` before the sub-FSM evaluates the jump transition (`IsJumpRequested && IsGrounded`), the jump is lost. The character drops through without jumping. Callers that need "jump down through platform" should call `DropThrough()` first and `Jump()` on a subsequent frame after confirming the character is in `FallSubState`.
+
+### DropThrough() Under Continuous Calling
+
+`DropThrough()` has an `IsGrounded` guard — it is a no-op when airborne. Calling it every frame while grounded on stacked one-way platforms causes the character to chain-drop through all of them (identical to holding S with `PlayerInputReader`). This is by design.
+
+### Takeoff when jumping is not instant
+
+It takes a few frames to set `IsGrounded` to false due to `CheckGround()` method, which detects ground a few frames after firing jump action.
