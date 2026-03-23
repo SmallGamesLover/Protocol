@@ -118,10 +118,10 @@
     - [x] 97. Confirm `CharacterMover2D.cs` has zero `using UnityEngine.InputSystem` imports and zero references to `Keyboard` or `Mouse`
     - [x] 98. Confirm the only file in the project that references `Keyboard.current` or `Mouse.current` is `PlayerInputReader.cs`
     - [x] 99. Confirm zero uses of legacy `UnityEngine.Input` anywhere in the project
-  - [ ] **6E — Cleanup**
-    - [ ] 100. Delete `AutoMoverTest` (temporary test script)
-    - [ ] 101. Re-enable `PlayerInputReader` on the player GameObject
-    - [ ] 102. Document findings from tasks 87–96 in `CharacterMover2D_Notes.md` under a new section "API Behavioral Notes — Hostile Input Patterns"
+  - [x] **6E — Cleanup**
+    - [x] 100. Delete `AutoMoverTest` (temporary test script)
+    - [x] 101. Re-enable `PlayerInputReader` on the player GameObject
+    - [x] 102. Document findings from tasks 87–96 in `CharacterMover2D_Notes.md` under a new section "API Behavioral Notes — Hostile Input Patterns"
 
 - [ ] Phase 7: Polish and tweaking
   - [ ] 103. Tune `WalkSpeed`, `RunSpeed`, `Acceleration`, `Deceleration` via ScriptableObject in Play Mode
