@@ -33,7 +33,12 @@ namespace SGL.Protocol.Runtime.Movement
             if (keyboard.sKey.isPressed)
                 _mover.DropThrough();
 
-            // _mover.Dodge();  // Uncomment in Phase 5
+            if (keyboard.leftShiftKey.wasPressedThisFrame)
+            {
+                float dodgeHorizontal = horizontal;
+                if (dodgeHorizontal == 0f) dodgeHorizontal = 1f;
+                _mover.Dodge(new Vector2(dodgeHorizontal, 0f));
+            }
         }
     }
 }

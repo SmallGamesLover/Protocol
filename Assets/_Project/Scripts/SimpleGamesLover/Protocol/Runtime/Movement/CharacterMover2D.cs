@@ -12,6 +12,7 @@ namespace SGL.Protocol.Runtime.Movement
     public class CharacterMover2D : MonoBehaviour
     {
         [SerializeField] private WalkingConfig _walkingConfig;
+        [SerializeField] private DodgeConfig _dodgeConfig;
 
         [SerializeField] private Vector2 GroundCheckSize = new Vector2(0.9f, 0.05f);
         [SerializeField] private Vector2 GroundCheckOffset = new Vector2(0f, 0f);
@@ -20,13 +21,15 @@ namespace SGL.Protocol.Runtime.Movement
         [SerializeField] private LayerMask GroundLayerMask;
         [SerializeField] private LayerMask CeilingLayerMask;
 
-        public bool IsCeiling { get; private set; }
-
         private Rigidbody2D _rigidbody;
         private BoxCollider2D _boxCollider;
         private StateMachine<IState> _topFsm;
         private ContactFilter2D _contactFilter;
         private CollisionSlideResolver2D _collisionResolver;
+
+        // Concrete references needed for transition conditions (IsFinished, etc.)
+        private WalkingState _walkingState;
+        private DodgeState _dodgeState;
 
         // One-way platform state
         private int _platformLayer;
@@ -36,6 +39,8 @@ namespace SGL.Protocol.Runtime.Movement
 
         /// <summary>True when the character is standing on ground or a platform.</summary>
         public bool IsGrounded { get; private set; }
+
+        public bool IsCeiling { get; private set; }
 
         /// <summary>Current movement velocity. Read and written by FSM sub-states.</summary>
         public Vector2 Velocity { get; set; }
@@ -48,6 +53,12 @@ namespace SGL.Protocol.Runtime.Movement
 
         /// <summary>Set to true by Jump(). Consumed by JumpSubState.OnEnter() via ConsumeJumpRequest().</summary>
         public bool IsJumpRequested { get; private set; }
+
+        /// <summary>Set by Dodge(). Cleared by ConsumeDodgeRequest() inside DodgeState.OnEnter().</summary>
+        public bool IsDodgeRequested { get; private set; }
+
+        /// <summary>Direction captured from Dodge() call. Read by DodgeState.OnEnter().</summary>
+        public Vector2 DodgeDirection { get; private set; }
 
         /// <summary>True while the jump button is held. Used by JumpSubState for low-jump gravity.</summary>
         public bool IsJumpHeld { get; set; }
@@ -74,9 +85,13 @@ namespace SGL.Protocol.Runtime.Movement
             _contactFilter = new ContactFilter2D { useLayerMask = true, layerMask = GroundLayerMask };
             _collisionResolver = new CollisionSlideResolver2D(_rigidbody);
 
-            var walkingState = new WalkingState(this, _walkingConfig);
+            _walkingState = new WalkingState(this, _walkingConfig);
+            _dodgeState = new DodgeState(this, _dodgeConfig);
+
             _topFsm = new StateMachine<IState>();
-            _topFsm.SetInitialState(walkingState);
+            _topFsm.AddTransition(_walkingState, _dodgeState, () => IsDodgeRequested);
+            _topFsm.AddTransition(_dodgeState, _walkingState, () => _dodgeState.IsFinished);
+            _topFsm.SetInitialState(_walkingState);
         }
 
         /// <summary>
@@ -100,9 +115,17 @@ namespace SGL.Protocol.Runtime.Movement
             IsJumpRequested = false;
         }
 
-        /// <summary>Requests a dodge in the given direction.</summary>
+        /// <summary>Requests a dodge in the given direction. Sets IsDodgeRequested and stores DodgeDirection.</summary>
         public void Dodge(Vector2 direction)
         {
+            IsDodgeRequested = true;
+            DodgeDirection = direction;
+        }
+
+        /// <summary>Clears IsDodgeRequested. Called by DodgeState.OnEnter() so the flag is consumed exactly once.</summary>
+        public void ConsumeDodgeRequest()
+        {
+            IsDodgeRequested = false;
         }
 
         /// <summary>
