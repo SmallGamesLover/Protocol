@@ -23,31 +23,31 @@ Examples:
 - `Scripts/.../Runtime/Movement/CharacterMover2D.cs` → `SGL.Protocol.Runtime.Movement`
 - `Scripts/.../Runtime/Movement/States/WalkingState.cs` → `SGL.Protocol.Runtime.Movement.States`
 
-If a file could be used in an Runtime AND Editor script → it goes in `Shared/`, not `Runtime/`. 
+If a file could be used in Runtime AND Editor → it goes in `Shared/`, not `Runtime/`.
 Example: `Vector2Extensions.cs`.
 
 ---
 
 ## Class Map
 
-| Class | File | Responsibility | Key Dependencies |
-|-------|------|----------------|-----------------|
-| `IState` | `Shared/FSM/IState.cs` | Lifecycle contract: `OnEnter()`, `OnExit()` | — |
-| `ITickable` | `Shared/FSM/ITickable.cs` | Per-frame update contract: `Tick(float deltaTime)`. Standalone — does NOT inherit `IState` | — |
-| `StateMachine<TState>` | `Shared/FSM/StateMachine.cs` | Generic FSM. Registers transitions, evaluates them in order, calls `OnExit`/`OnEnter`. No Tick. | `IState` |
-| `Vector2Extensions` | `Shared/Vector2Extensions.cs` | Extension method `ProjectOnAxis(normal)` — projects a vector onto the surface tangent | UnityEngine |
-| `CharacterMover2D` | `Runtime/Movement/CharacterMover2D.cs` | Top-level movement MonoBehaviour. Owns top FSM, performs ground/ceiling checks, applies movement via resolver. Manages one-way platform state. Input-agnostic public API. | `WalkingConfig`, `CollisionSlideResolver2D`, `StateMachine<IState>` |
-| `WalkingConfig` | `Runtime/Movement/WalkingConfig.cs` | ScriptableObject with all movement parameters. Exposes computed properties (`Gravity`, `JumpVelocity`, `FallMultiplier`) and `HorizontalMoveParams` presets. | `HorizontalMoveParams` |
-| `HorizontalMoveParams` | `Runtime/Movement/HorizontalMoveParams.cs` | `readonly struct`. Encapsulates `MaxSpeed`, `Acceleration`, `Deceleration` and the shared `Apply(velX, input, dt)` formula. Used by all five sub-states. | UnityEngine (Mathf) |
-| `CollisionSlideResolver2D` | `Runtime/Movement/CollisionSlideResolver2D.cs` | Recursive collide-and-slide. Accepts optional `shouldIgnore` predicate (Strategy Pattern) applied after the dot-product filter. Returns safe displacement. `SKIN_WIDTH = 0.015f`, `MAX_BOUNCES = 3`. | `Vector2Extensions`, `Rigidbody2D` |
-| `PlayerInputReader` | `Runtime/Movement/PlayerInputReader.cs` | Reads `Keyboard.current` (New Input System, no `.inputactions` asset). Calls `CharacterMover2D` public API. The only file referencing `Keyboard`/`Mouse`. | `UnityEngine.InputSystem` |
-| `WalkingState` | `Runtime/Movement/States/WalkingState.cs` | Top-level FSM state. Owns a second `StateMachine<IState>` for sub-states. `OnEnter` calls `ResolveSubState()`. Manages coyote timer start on edge walk-off. | `CharacterMover2D`, `WalkingConfig`, `StateMachine<IState>` |
-| `IdleSubState` | `Runtime/Movement/States/IdleSubState.cs` | No input, grounded. Decelerates to zero via `GroundWalkParams.Apply(v.x, 0f, dt)`. | `CharacterMover2D`, `WalkingConfig` |
-| `WalkSubState` | `Runtime/Movement/States/WalkSubState.cs` | Horizontal input, no Shift. Accelerates to `WalkSpeed` via `GroundWalkParams.Apply()`. | `CharacterMover2D`, `WalkingConfig` |
-| `RunSubState` | `Runtime/Movement/States/RunSubState.cs` | Horizontal input + Shift. Accelerates to `RunSpeed` via `GroundRunParams.Apply()`. | `CharacterMover2D`, `WalkingConfig` |
-| `JumpSubState` | `Runtime/Movement/States/JumpSubState.cs` | `OnEnter`: sets `velocity.y = JumpVelocity`, consumes jump request, clears timers. `Tick`: gravity, low-jump multiplier, air control via `AirParams.Apply()`. | `CharacterMover2D`, `WalkingConfig` |
-| `FallSubState` | `Runtime/Movement/States/FallSubState.cs` | `Tick`: fall gravity × `FallMultiplier`, clamp to `MaxFallSpeed`, air control, jump buffer capture, timer decrement. `OnExit`: zeroes `velocity.y`. | `CharacterMover2D`, `WalkingConfig` |
-| `TestMover` | `Runtime/TestMover.cs` | Debug-only MonoBehaviour. WASD movement with `CollisionSlideResolver2D`, no FSM, no gravity. Used to test the resolver in isolation. | `CollisionSlideResolver2D` |
+- `IState` — `Shared/FSM/IState.cs` — lifecycle contract: `OnEnter()`, `OnExit()`. No deps.
+- `ITickable` — `Shared/FSM/ITickable.cs` — per-frame update contract: `Tick(float deltaTime)`. Standalone, does NOT inherit `IState`. No deps.
+- `StateMachine<TState>` — `Shared/FSM/StateMachine.cs` — generic FSM. Registers transitions, evaluates them in order, calls `OnExit`/`OnEnter`. No Tick. Depends on: `IState`.
+- `Vector2Extensions` — `Shared/Vector2Extensions.cs` — extension `ProjectOnAxis(normal)`: projects a vector onto the surface tangent. Depends on: `UnityEngine`.
+- `CharacterMover2D` — `Runtime/Movement/CharacterMover2D.cs` — top-level movement MonoBehaviour. Owns top FSM, ground/ceiling checks, applies movement via resolver, manages one-way platform state, exposes input-agnostic public API. Depends on: `WalkingConfig`, `DodgeConfig`, `CollisionSlideResolver2D`, `StateMachine<IState>`, `WalkingState`, `DodgeState`.
+- `WalkingConfig` — `Runtime/Movement/WalkingConfig.cs` — ScriptableObject with all movement parameters. Exposes computed properties (`Gravity`, `JumpVelocity`, `FallMultiplier`) and `HorizontalMoveParams` presets. Depends on: `HorizontalMoveParams`.
+- `DodgeConfig` — `Runtime/Movement/DodgeConfig.cs` — ScriptableObject with `DodgeDistance`, `DodgeSpeed`. Computed read-only `DodgeTime` for external systems (animation, UI). No code deps.
+- `HorizontalMoveParams` — `Runtime/Movement/HorizontalMoveParams.cs` — `readonly struct`. Encapsulates `MaxSpeed`, `Acceleration`, `Deceleration` and the shared `Apply(velX, input, dt)` formula. Used by all five sub-states. Depends on: `Mathf`.
+- `CollisionSlideResolver2D` — `Runtime/Movement/CollisionSlideResolver2D.cs` — recursive collide-and-slide. Accepts optional `shouldIgnore` predicate (Strategy Pattern) applied after the dot-product filter. Returns safe displacement. `SKIN_WIDTH = 0.03f`, `MAX_BOUNCES = 3`. Depends on: `Vector2Extensions`, `Rigidbody2D`.
+- `PlayerInputReader` — `Runtime/Movement/PlayerInputReader.cs` — reads `Keyboard.current` (New Input System, no `.inputactions` asset). Calls `CharacterMover2D` public API. The only file referencing `Keyboard`/`Mouse`. Depends on: `UnityEngine.InputSystem`, `CharacterMover2D`.
+- `WalkingState` — `Runtime/Movement/States/WalkingState.cs` — top-level FSM state. Owns a second `StateMachine<IState>` for sub-states. `OnEnter` calls `ResolveSubState()`. Manages coyote timer start on edge walk-off. Depends on: `CharacterMover2D`, `WalkingConfig`, `StateMachine<IState>`.
+- `DodgeState` — `Runtime/Movement/States/DodgeState.cs` — top-level FSM state. Horizontal dodge with distance-based tracking. `OnEnter` zeroes vertical velocity, captures direction, consumes the dodge request. `IsFinished` signals the FSM to return to `WalkingState`. Depends on: `CharacterMover2D`, `DodgeConfig`.
+- `IdleSubState` — `Runtime/Movement/States/IdleSubState.cs` — no input, grounded. Decelerates to zero via `GroundWalkParams.Apply(v.x, 0f, dt)`. Depends on: `CharacterMover2D`, `WalkingConfig`.
+- `WalkSubState` — `Runtime/Movement/States/WalkSubState.cs` — horizontal input, no Shift. Accelerates to `WalkSpeed` via `GroundWalkParams.Apply()`. Depends on: `CharacterMover2D`, `WalkingConfig`.
+- `RunSubState` — `Runtime/Movement/States/RunSubState.cs` — horizontal input + Shift. Accelerates to `RunSpeed` via `GroundRunParams.Apply()`. Depends on: `CharacterMover2D`, `WalkingConfig`.
+- `JumpSubState` — `Runtime/Movement/States/JumpSubState.cs` — `OnEnter`: sets `velocity.y = JumpVelocity`, consumes jump request, clears timers. `Tick`: gravity, low-jump multiplier, air control via `AirParams.Apply()`. Depends on: `CharacterMover2D`, `WalkingConfig`.
+- `FallSubState` — `Runtime/Movement/States/FallSubState.cs` — `Tick`: fall gravity × `FallMultiplier`, clamp to `MaxFallSpeed`, air control, jump buffer capture, timer decrement. Depends on: `CharacterMover2D`, `WalkingConfig`.
+- `TestMover` — `Runtime/TestMover.cs` — debug-only MonoBehaviour. WASD + `CollisionSlideResolver2D`, no FSM, no gravity. Resolver isolation test. Depends on: `CollisionSlideResolver2D`.
 
 ---
 
@@ -58,16 +58,24 @@ Two-level HFSM implemented by reusing the same `StateMachine<TState>` class on b
 ```
 CharacterMover2D
 └── StateMachine<IState>  _topFsm
-        └── WalkingState  ← currently the only top-level state
-                └── StateMachine<IState>  _subFsm
-                        ├── IdleSubState
-                        ├── WalkSubState
-                        ├── RunSubState
-                        ├── JumpSubState
-                        └── FallSubState
+        ├── WalkingState
+        │       └── StateMachine<IState>  _subFsm
+        │               ├── IdleSubState
+        │               ├── WalkSubState
+        │               ├── RunSubState
+        │               ├── JumpSubState
+        │               └── FallSubState
+        └── DodgeState
 ```
 
-**Why two levels:** a future `DodgeState` at the top level applies to all five sub-states with a single `WalkingState→DodgeState` transition instead of five.
+Why two levels: `WalkingState→DodgeState` is one transition at the top level, covering all five sub-states. Without HFSM each sub-state would need its own `→DodgeState` transition.
+
+### Top-level transitions (registered in CharacterMover2D.Awake)
+
+- WalkingState → DodgeState: `IsDodgeRequested`
+- DodgeState → WalkingState: `_dodgeState.IsFinished`
+
+`CharacterMover2D` holds typed refs (`WalkingState _walkingState`, `DodgeState _dodgeState`) so transition lambdas can read state-specific properties. The FSM stores them as `IState` internally.
 
 ### Sub-state transition map (registered in WalkingState constructor, checked in order)
 
@@ -84,11 +92,7 @@ CharacterMover2D
 
 ### ResolveSubState
 
-Called in `WalkingState.OnEnter()`. Picks the starting sub-state based on current conditions:
-- not grounded → Fall
-- grounded + input + Shift → Run
-- grounded + input → Walk
-- otherwise → Idle
+Called in `WalkingState.OnEnter()`. Picks the starting sub-state based on current conditions — not grounded → Fall; grounded + input + Shift → Run; grounded + input → Walk; otherwise → Idle. Critical after mid-air dodge: ensures return to Fall, not Idle.
 
 ### Coyote time
 
@@ -106,11 +110,12 @@ Captured in `FallSubState.Tick()` when `IsJumpRequested` is true while airborne.
 
 ```
 PlayerInputReader.Update()
-    ├── CharacterMover2D.Move(direction)  → HorizontalInput = direction.x
-    ├── CharacterMover2D.IsRunRequested   ← Shift held
-    ├── CharacterMover2D.IsJumpHeld       ← Space held
-    ├── CharacterMover2D.Jump()           → IsJumpRequested = true  (Space pressed)
-    └── CharacterMover2D.DropThrough()    ← S held (chains through stacked platforms)
+    ├── CharacterMover2D.Move(direction)    → HorizontalInput = direction.x
+    ├── CharacterMover2D.IsRunRequested     ← Shift held
+    ├── CharacterMover2D.IsJumpHeld         ← Space held
+    ├── CharacterMover2D.Jump()             → IsJumpRequested = true  (Space pressed)
+    ├── CharacterMover2D.DropThrough()      ← S held (chains through stacked platforms)
+    └── CharacterMover2D.Dodge(direction)   → IsDodgeRequested = true  (Shift tapped)
 
 CharacterMover2D.FixedUpdate()
     ├── IsGrounded = CheckGround()
@@ -118,12 +123,16 @@ CharacterMover2D.FixedUpdate()
     ├── IsCeiling  = CheckCeiling() using CeilingLayerMask (Ground only, excludes Platform)
     ├── if IsCeiling && Velocity.y > 0 → Velocity.y = 0
     ├── _topFsm.EvaluateTransitions()
+    │       WalkingState → DodgeState when IsDodgeRequested
+    │       DodgeState → WalkingState when IsFinished
     ├── (_topFsm.CurrentState as ITickable).Tick(dt)
-    │       └── WalkingState.Tick(dt)
-    │               ├── _subFsm.EvaluateTransitions()
-    │               ├── coyote timer start (if just entered Fall, not from Jump)
-    │               └── (_subFsm.CurrentState as ITickable).Tick(dt)
-    │                       └── sub-state modifies CharacterMover2D.Velocity
+    │       WalkingState.Tick(dt):
+    │           ├── _subFsm.EvaluateTransitions()
+    │           ├── coyote timer start (if just entered Fall, not from Jump)
+    │           └── (_subFsm.CurrentState as ITickable).Tick(dt)
+    │                   └── sub-state modifies CharacterMover2D.Velocity
+    │       DodgeState.Tick(dt):
+    │           └── sets Velocity.x = DodgeSpeed * _direction, decrements _remainingDistance
     ├── ApplyMovement(dt)
     │       ├── CollisionSlideResolver2D.CollideAndSlide(
     │       │       Velocity * dt, _contactFilter, ShouldIgnorePlatformHit)
@@ -139,22 +148,22 @@ CharacterMover2D.FixedUpdate()
 2. `hit.normal.y < 0.5f` — side/bottom contact; platforms only block from above
 3. `charBottom < platformTop - SKIN_WIDTH` — Mechanism 2: positional check (character below or passing through)
 
-`DropThrough()` — finds the first Platform-layer collider in `_groundCheckBuffer` and stores it in `_dropThroughTarget`. Guard: `IsGrounded` must be true; no-op on solid Ground layer.
+`DropThrough()` — finds the first Platform-layer collider in `_groundCheckBuffer`, stores in `_dropThroughTarget`. Guard: `IsGrounded` must be true; no-op on solid Ground layer.
 
 ### Shared state on CharacterMover2D (read/written by sub-states)
 
-| Property | Writer | Reader |
-|----------|--------|--------|
-| `Velocity` | all sub-states | all sub-states, `ApplyMovement` |
-| `HorizontalInput` | `Move()` | Walk/Run/Jump/Fall sub-states |
-| `IsGrounded` | `FixedUpdate` ground check | transition conditions |
-| `IsCeiling` | `FixedUpdate` ceiling check | `FixedUpdate` (zero velocity.y) |
-| `IsJumpRequested` | `Jump()`, cleared by `ConsumeJumpRequest()` | transition conditions |
-| `IsJumpHeld` | PlayerInputReader | `JumpSubState` (low-jump gravity) |
-| `IsRunRequested` | PlayerInputReader | transition conditions |
-| `CoyoteTimer` | `WalkingState.Tick()` (set), `FallSubState.Tick()` (decrement) | transition conditions |
-| `JumpBufferTimer` | `FallSubState.Tick()` (set + decrement), `JumpSubState.OnEnter()` (clear) | transition conditions |
-| `_dropThroughTarget` | `DropThrough()` (set), `FixedUpdate` positional check (clear) | `ShouldIgnorePlatformHit`, `CheckGround` |
+- `Velocity` — written by all sub-states and DodgeState; read by `ApplyMovement`
+- `HorizontalInput` — written by `Move()`; read by Walk/Run/Jump/Fall sub-states
+- `IsGrounded` — written by `FixedUpdate` ground check; read by transition conditions
+- `IsCeiling` — written by `FixedUpdate` ceiling check; read by `FixedUpdate` (zero velocity.y)
+- `IsJumpRequested` — set by `Jump()`, cleared by `ConsumeJumpRequest()`; read by transitions
+- `IsJumpHeld` — set by PlayerInputReader; read by `JumpSubState` (low-jump gravity)
+- `IsRunRequested` — set by PlayerInputReader; read by transition conditions
+- `IsDodgeRequested` — set by `Dodge()`, cleared by `ConsumeDodgeRequest()` in `DodgeState.OnEnter()`; read by top-level FSM transition
+- `DodgeDirection` — set by `Dodge()`; read by `DodgeState.OnEnter()`
+- `CoyoteTimer` — set in `WalkingState.Tick()`, decremented in `FallSubState.Tick()`; read by transitions
+- `JumpBufferTimer` — set+decremented in `FallSubState.Tick()`, cleared in `JumpSubState.OnEnter()`; read by transitions
+- `_dropThroughTarget` — set by `DropThrough()`, cleared by positional check in `FixedUpdate`; read by `ShouldIgnorePlatformHit`, `CheckGround`
 
 ---
 
@@ -176,19 +185,22 @@ Recursive, up to `MAX_BOUNCES = 3` iterations.
 ## Active Patterns
 
 **HFSM (Hierarchical Finite State Machine)**
-Same `StateMachine<TState>` class reused at two levels. Top level handles macro states (Walking, Dodge); inner level handles movement sub-states. Sub-states are unaware of the top level. Example: `WalkingState` owns `StateMachine<IState> _subFsm`.
+Same `StateMachine<TState>` reused at two levels. Top: WalkingState ↔ DodgeState. Inner: five movement sub-states. Sub-states are unaware of the top level. Example: `WalkingState` owns `StateMachine<IState> _subFsm`.
 
 **Strategy Pattern (hit-filtering predicate)**
-`CollisionSlideResolver2D.CollideAndSlide()` accepts `Func<RaycastHit2D, bool> shouldIgnore = null`. The resolver stays generic — platform logic is injected from `CharacterMover2D.ShouldIgnorePlatformHit`. Same predicate applies at every recursion level.
+`CollisionSlideResolver2D.CollideAndSlide()` accepts `Func<RaycastHit2D, bool> shouldIgnore = null`. Resolver stays generic; platform logic is injected from `CharacterMover2D.ShouldIgnorePlatformHit`. Same predicate applies at every recursion level.
+
+**Request/Consume Pattern**
+Both jump and dodge use the same pattern: the input reader calls `Jump()`/`Dodge()` setting a bool flag; the FSM transition fires; the entering state calls `ConsumeJumpRequest()`/`ConsumeDodgeRequest()` to clear the flag. Guarantees one activation per press, regardless of frame timing.
 
 **Value Object (HorizontalMoveParams)**
 `readonly struct` encapsulating the horizontal acceleration formula. All five sub-states call the same `Apply(velX, input, dt)` with different parameter sets from `WalkingConfig`. Created fresh on each property access — no caching issues with Inspector changes.
 
 **ScriptableObject-driven configuration**
-`WalkingConfig` (and future `DodgeConfig`) hold all tunable parameters. Tweakable in Play Mode without recompilation. Shared between player and enemies via separate asset instances.
+`WalkingConfig` and `DodgeConfig` hold all tunable parameters. Tweakable in Play Mode without recompilation. Shareable between player and enemies via separate asset instances.
 
 **Input agnosticism**
-`CharacterMover2D` has zero input imports. All input arrives via public methods (`Move`, `Jump`, `Dodge`, `DropThrough`). `PlayerInputReader` is the sole file referencing `Keyboard`/`Mouse`. The same component can be driven by AI.
+`CharacterMover2D` has zero input imports. All input arrives via public methods (`Move`, `Jump`, `Dodge`, `DropThrough`). `PlayerInputReader` is the sole file referencing `Keyboard`/`Mouse`. The same component can drive AI agents.
 
 **Separation of collision resolution**
 `CollisionSlideResolver2D` only returns a displacement vector — it never calls `MovePosition`. `ApplyMovement()` applies it. Makes the resolver reusable by any future movement component (e.g. `FlyingState`).
@@ -197,8 +209,9 @@ Same `StateMachine<TState>` class reused at two levels. Top level handles macro 
 
 ## Open Decisions / Planned Work
 
-- **DodgeState** (Phase 5): top-level FSM state, `WalkingState → DodgeState` on dodge input. `DodgeConfig` ScriptableObject. Mid-air dodge zeroes vertical velocity; on return `ResolveSubState()` must enter Fall, not Idle.
 - **FlyingState** (post-prototype): airborne movement without gravity, uses `direction.y` from `Move()`. Reuses `CollisionSlideResolver2D`.
 - **Slope handling**: `OverlapBox` ground check doesn't reliably detect angled surfaces. Running downhill produces a staircase effect. No fix scheduled.
 - **Input actions asset**: `Keyboard.current` is read directly (no `.inputactions`). Rebinding and gamepad support will require migrating to `InputActionAsset` in a later phase.
+- **Dodge key binding**: Shift is currently used for both Run (hold) and Dodge (tap). Placeholder for prototype — final binding TBD during Phase 7 or when the input system is formalized.
 - **Debug FSM display**: `OnGUI` overlay showing current top-level state + sub-state name planned for Phase 7.
+- **Drop-through safety timer**: `_dropThroughTarget` cleared positionally. If the character gets stuck inside a platform (teleport, destroyed collider), the flag may never clear. Mitigation: add a 0.3–0.5s fallback timeout in `WalkingConfig`. See `CharacterMover2D_Notes.md`.
