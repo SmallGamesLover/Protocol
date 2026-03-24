@@ -18,6 +18,20 @@ namespace SGL.Protocol.Runtime.Movement.States
         private readonly JumpSubState _jump;
         private readonly FallSubState _fall;
 
+
+        /// <summary>
+        /// Current sub-state type name for the debug overlay.
+        /// Editor-only: returns <c>""</c> in builds.
+        /// </summary>
+        public string DebugSubStateName
+        {
+#if UNITY_EDITOR
+            get => _subFsm.CurrentState?.GetType().Name ?? "None";
+#else
+            get => "";
+#endif
+        }
+
         public WalkingState(CharacterMover2D mover, WalkingConfig config)
         {
             _mover = mover;

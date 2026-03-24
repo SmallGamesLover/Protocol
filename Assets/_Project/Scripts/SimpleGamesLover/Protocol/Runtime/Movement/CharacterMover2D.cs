@@ -69,6 +69,35 @@ namespace SGL.Protocol.Runtime.Movement
         /// <summary>Window during which a jump pressed in the air is remembered and fires on landing.</summary>
         public float JumpBufferTimer { get; set; }
 
+        /// <summary>
+        /// Composite FSM state name for the debug overlay.
+        /// Returns <c>"Walking &gt; {sub}"</c> when in WalkingState, otherwise the top-level type name.
+        /// Editor-only: returns <c>""</c> in builds.
+        /// </summary>
+        public string DebugStateName
+        {
+#if UNITY_EDITOR
+            get => _topFsm.CurrentState == _walkingState
+                ? $"Walking > {_walkingState.DebugSubStateName}"
+                : _topFsm.CurrentState?.GetType().Name ?? "None";
+#else
+            get => "";
+#endif
+        }
+
+        /// <summary>
+        /// True when a drop-through is in progress. Editor-only: returns <c>false</c> in builds.
+        /// Avoids exposing the private <see cref="Collider2D"/> field to the overlay.
+        /// </summary>
+        public bool DebugIsDropThroughActive
+        {
+#if UNITY_EDITOR
+            get => _dropThroughTarget != null;
+#else
+            get => false;
+#endif
+        }
+
         // Debug
         [Header("Debug")]
         [SerializeField] private float DebugVisualScale = 0.32f;

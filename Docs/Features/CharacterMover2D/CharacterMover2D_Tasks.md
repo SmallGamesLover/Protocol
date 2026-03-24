@@ -129,11 +129,11 @@
   - [x] 105. Tune `JumpHeight`, `TimeToApex`, `TimeToDescent`, `LowJumpMultiplier`, `MaxFallSpeed`
   - [x] 106. Tune `CoyoteTime`, `JumpBufferTime`
   - [x] 107. Tune `DodgeDistance`, `DodgeSpeed`
-  - [ ] **7A — Expose debug data from FSM**
-    - [ ] 108. Add public read-only property `string DebugSubStateName` to `WalkingState` — returns `_subFsm.CurrentState?.GetType().Name ?? "None"`. The `Debug` prefix signals this is not for runtime use. This is the only addition to `WalkingState`; the sub-FSM itself remains private
-    - [ ] 109. Add public read-only property `string DebugStateName` to `CharacterMover2D`. If `_topFsm.CurrentState == _walkingState`, return `$"Walking > {_walkingState.DebugSubStateName}"`. Otherwise return `_topFsm.CurrentState?.GetType().Name ?? "None"`. Uses the typed refs (`_walkingState`) already stored for transition registration — no new fields needed
-    - [ ] 110. Add public read-only property `bool DebugIsDropThroughActive` to `CharacterMover2D` — returns `_dropThroughTarget != null`. Avoids exposing the private `Collider2D` field while giving the debug overlay the information it needs
-    - [ ] 111. Wrap getter bodies (not declarations) of all three properties in `#if UNITY_EDITOR`. In `#else` branch return `""` for strings and `false` for bool. This keeps the properties compilable in builds (no missing-member errors from any accidental reference) while producing zero runtime work
+  - [x] **7A — Expose debug data from FSM**
+    - [x] 108. Add public read-only property `string DebugSubStateName` to `WalkingState` — returns `_subFsm.CurrentState?.GetType().Name ?? "None"`. The `Debug` prefix signals this is not for runtime use. This is the only addition to `WalkingState`; the sub-FSM itself remains private
+    - [x] 109. Add public read-only property `string DebugStateName` to `CharacterMover2D`. If `_topFsm.CurrentState == _walkingState`, return `$"Walking > {_walkingState.DebugSubStateName}"`. Otherwise return `_topFsm.CurrentState?.GetType().Name ?? "None"`. Uses the typed refs (`_walkingState`) already stored for transition registration — no new fields needed
+    - [x] 110. Add public read-only property `bool DebugIsDropThroughActive` to `CharacterMover2D` — returns `_dropThroughTarget != null`. Avoids exposing the private `Collider2D` field while giving the debug overlay the information it needs
+    - [x] 111. Wrap getter bodies (not declarations) of all three properties in `#if UNITY_EDITOR`. In `#else` branch return `""` for strings and `false` for bool. This keeps the properties compilable in builds (no missing-member errors from any accidental reference) while producing zero runtime work
   - [ ] **7B — Create `MovementDebugOverlay` MonoBehaviour**
     - [ ] 112. Create `MovementDebugOverlay` in `Runtime/Movement/`. Do NOT wrap the entire class in `#if UNITY_EDITOR` — the class shell must exist in builds to avoid "Missing script" errors on the GameObject. Add `[SerializeField]` reference to `CharacterMover2D` (or resolve via `GetComponent` in `Awake()`)
     - [ ] 113. Add two `[SerializeField]` bool fields: `ShowOverlay` (default `true`), `ShowVelocityGizmo` (default `true`). These control OnGUI and Gizmo independently. Disabling the component disables both. Keep fields unwrapped — they must serialize in builds to avoid deserialization warnings
