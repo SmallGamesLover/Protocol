@@ -9,7 +9,7 @@ namespace SGL.Protocol.Runtime.Movement
     /// </summary>
     public class PlayerInputReader : MonoBehaviour
     {
-        [SerializeField] private CharacterMover2D _mover;
+        [SerializeField] private CharacterMover2D Mover;
 
         private void Update()
         {
@@ -21,23 +21,23 @@ namespace SGL.Protocol.Runtime.Movement
             if (keyboard.dKey.isPressed || keyboard.rightArrowKey.isPressed) horizontal += 1f;
             if (keyboard.aKey.isPressed || keyboard.leftArrowKey.isPressed) horizontal -= 1f;
 
-            _mover.IsRunRequested = keyboard.leftShiftKey.isPressed || keyboard.rightShiftKey.isPressed;
-            _mover.IsJumpHeld = keyboard.spaceKey.isPressed;
+            Mover.IsRunRequested = keyboard.leftShiftKey.isPressed || keyboard.rightShiftKey.isPressed;
+            Mover.IsJumpHeld = keyboard.spaceKey.isPressed;
 
             Vector2 direction = new Vector2(horizontal, 0f);
-            _mover.Move(direction);
+            Mover.Move(direction);
 
             if (keyboard.spaceKey.wasPressedThisFrame)
-                _mover.Jump();
+                Mover.Jump();
 
             if (keyboard.sKey.isPressed)
-                _mover.DropThrough();
+                Mover.DropThrough();
 
             if (keyboard.leftShiftKey.wasPressedThisFrame)
             {
                 float dodgeHorizontal = horizontal;
                 if (dodgeHorizontal == 0f) dodgeHorizontal = 1f;
-                _mover.Dodge(new Vector2(dodgeHorizontal, 0f));
+                Mover.Dodge(new Vector2(dodgeHorizontal, 0f));
             }
         }
     }

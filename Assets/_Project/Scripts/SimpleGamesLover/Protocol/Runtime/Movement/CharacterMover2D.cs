@@ -11,8 +11,8 @@ namespace SGL.Protocol.Runtime.Movement
     [RequireComponent(typeof(Rigidbody2D))]
     public class CharacterMover2D : MonoBehaviour
     {
-        [SerializeField] private WalkingConfig _walkingConfig;
-        [SerializeField] private DodgeConfig _dodgeConfig;
+        [SerializeField] private WalkingConfig WalkingConfig;
+        [SerializeField] private DodgeConfig DodgeConfig;
 
         [SerializeField] private Vector2 GroundCheckSize = new Vector2(0.9f, 0.05f);
         [SerializeField] private Vector2 GroundCheckOffset = new Vector2(0f, 0f);
@@ -44,6 +44,9 @@ namespace SGL.Protocol.Runtime.Movement
 
         /// <summary>Current movement velocity. Read and written by FSM sub-states.</summary>
         public Vector2 Velocity { get; set; }
+
+        /// <summary>Actual movement velocity. Resolved after collide and slide algorithm.</summary>
+        public Vector2 ResolvedVelocity { get; set; }
 
         /// <summary>Horizontal axis input in the range [-1, 1]. Set by Move().</summary>
         public float HorizontalInput { get; private set; }
@@ -98,12 +101,6 @@ namespace SGL.Protocol.Runtime.Movement
 #endif
         }
 
-        // Debug
-        [Header("Debug")]
-        [SerializeField] private float DebugVisualScale = 0.32f;
-        private Vector2 _debugDesiredDisplacement;
-        private Vector2 _debugResolvedDisplacement;
-
         private void Awake()
         {
             _rigidbody = GetComponent<Rigidbody2D>();
@@ -114,8 +111,8 @@ namespace SGL.Protocol.Runtime.Movement
             _contactFilter = new ContactFilter2D { useLayerMask = true, layerMask = GroundLayerMask };
             _collisionResolver = new CollisionSlideResolver2D(_rigidbody);
 
-            _walkingState = new WalkingState(this, _walkingConfig);
-            _dodgeState = new DodgeState(this, _dodgeConfig);
+            _walkingState = new WalkingState(this, WalkingConfig);
+            _dodgeState = new DodgeState(this, DodgeConfig);
 
             _topFsm = new StateMachine<IState>();
             _topFsm.AddTransition(_walkingState, _dodgeState, () => IsDodgeRequested);
@@ -229,11 +226,7 @@ namespace SGL.Protocol.Runtime.Movement
         {
             Vector2 desired = Velocity * deltaTime;
             Vector2 resolved = _collisionResolver.CollideAndSlide(desired, _contactFilter, ShouldIgnorePlatformHit);
-
-#if UNITY_EDITOR
-            _debugDesiredDisplacement = desired * DebugVisualScale / deltaTime;
-            _debugResolvedDisplacement = resolved * DebugVisualScale / deltaTime;
-#endif
+            ResolvedVelocity = resolved / deltaTime;
 
             _rigidbody.MovePosition(_rigidbody.position + resolved);
         }
@@ -276,8 +269,6 @@ namespace SGL.Protocol.Runtime.Movement
 
         private void OnDrawGizmos()
         {
-            if (!Application.isPlaying) return;
-
             // Ground check box
             Vector2 groundOrigin = (Vector2)transform.position + GroundCheckOffset;
             Gizmos.color = IsGrounded ? Color.green : Color.red;
@@ -287,31 +278,6 @@ namespace SGL.Protocol.Runtime.Movement
             Vector2 ceilingOrigin = (Vector2)transform.position + CeilingCheckOffset;
             Gizmos.color = IsCeiling ? Color.green : Color.red;
             Gizmos.DrawWireCube(ceilingOrigin, CeilingCheckSize);
-
-            // Collide and slide debugging
-            Vector2 center = _rigidbody.position;
-            Vector2 size = _boxCollider.size;
-            Vector2 skinSize = size + Vector2.one * CollisionSlideResolver2D.SKIN_WIDTH * 2f;
-
-            // Current position
-            Gizmos.color = Color.green;
-            Gizmos.DrawWireCube(center, size);
-            Gizmos.color = new Color(0f, 1f, 0f, 0.25f);
-            Gizmos.DrawWireCube(center, skinSize);
-
-            // Desired displacement (raw velocity)
-            Gizmos.color = Color.yellow;
-            Gizmos.DrawLine(center, center + _debugDesiredDisplacement);
-            Gizmos.DrawWireCube(center + _debugDesiredDisplacement, size);
-            Gizmos.color = new Color(1f, 1f, 0f, 0.25f);
-            Gizmos.DrawWireCube(center + _debugDesiredDisplacement, skinSize);
-
-            // Resolved displacement (after CollideAndSlide)
-            Gizmos.color = Color.cyan;
-            Gizmos.DrawLine(center, center + _debugResolvedDisplacement);
-            Gizmos.DrawWireCube(center + _debugResolvedDisplacement, size);
-            Gizmos.color = new Color(0f, 1f, 1f, 0.25f);
-            Gizmos.DrawWireCube(center + _debugResolvedDisplacement, skinSize);
         }
 #endif
 
