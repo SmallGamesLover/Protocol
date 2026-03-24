@@ -97,7 +97,7 @@
   - [x] 82. Add dodge input to `PlayerInputReader`: on `leftShiftKey.wasPressedThisFrame`, read current A/D direction (default to +1 if none), call `_mover.Dodge(new Vector2(horizontal, 0f))`
   - [x] 83. Verify: dodge from Idle/Walk/Run covers exactly `DodgeDistance` (measure in Scene View), dodge from Jump/Fall zeroes vertical velocity and moves horizontally, after mid-air dodge character falls (not idle), after grounded dodge character enters correct sub-state, dodge into wall ends on schedule with no penetration, dodge off platform edge completes remaining distance in air then falls, `DodgeDistance` and `DodgeSpeed` tweakable in Inspector during Play Mode, rapid dodge spam does not re-trigger (consume pattern)
 
-- [ ] Phase 6: Input/movement separation verification and hostile input testing
+- [x] Phase 6: Input/movement separation verification and hostile input testing
   - [x] **6A — Full API smoke test**
     - [x] 84. Disable `PlayerInputReader` on the player GameObject
     - [x] 85. Create `AutoMoverTest` MonoBehaviour with a coroutine-based scenario that exercises every public API method in sequence: `Move(Vector2.right)` for ~1s → `Jump()` → wait for takeoff (`_mover.IsGrounded == false)` → mid-air `Move(Vector2.left)` → wait for landing → `Dodge(Vector2.right)` → wait for completion → walk onto one-way platform → `DropThrough()` → wait for landing below
@@ -123,7 +123,7 @@
     - [x] 101. Re-enable `PlayerInputReader` on the player GameObject
     - [x] 102. Document findings from tasks 87–96 in `CharacterMover2D_Notes.md` under a new section "API Behavioral Notes — Hostile Input Patterns"
 
-- [ ] Phase 7: Polish and tweaking
+- [x] Phase 7: Polish and tweaking
   - [x] 103. Tune `WalkSpeed`, `RunSpeed`, `Acceleration`, `Deceleration` via ScriptableObject in Play Mode
   - [x] 104. Tune `AirAcceleration`, `AirDeceleration` — balance responsiveness vs momentum
   - [x] 105. Tune `JumpHeight`, `TimeToApex`, `TimeToDescent`, `LowJumpMultiplier`, `MaxFallSpeed`
