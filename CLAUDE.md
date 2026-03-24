@@ -4,11 +4,6 @@
 Project for developing 2d indie game. Main genre: side-scroller shooter.
 Engine: Unity 6.3 | 2D URP | Language: C# | IDE: VS Code
 
-## Architecture
-- 
--
--
-
 ## Key Directories
 - `Assets/_Project/` folder is the top-level container for all project-owned content.
 - `Docs/` folder contains all design and planning documents.
@@ -18,7 +13,7 @@ Engine: Unity 6.3 | 2D URP | Language: C# | IDE: VS Code
 - `Docs/Features/<FeatureName>/*GDD*.md` file contains the GDD document for a feature.
 - `Docs/Features/<FeatureName>/*Plan*.md` file contains the implementation plan for a feature.
 - `Docs/Features/<FeatureName>/*Tasks*.md` file contains specific small tasks to complete when implementing a feature.
-- `Docs/Features/<FeatureName>/Notes.md` file contains notes about a feature's GDD or implementation. Here you can write all the edits made along the way. Also feel free to write anything you think is worth noting: concerns about the current implementation, suggestions, comments, etc.
+- `Docs/Features/<FeatureName>/*Notes*.md` file contains notes about a feature's GDD or implementation. Here you can write all the edits made along the way. Also feel free to write anything you think is worth noting: concerns about the current implementation, suggestions, comments, etc.
 
 ## Code Style (C#)
 - Use PascalCase for classes and public members
@@ -27,10 +22,17 @@ Engine: Unity 6.3 | 2D URP | Language: C# | IDE: VS Code
 - XML doc comments on all public API methods
 - No magic numbers — use named constants or ScriptableObjects
 
+## Folder Placement Rules
+- `Runtime/` — gameplay code that runs only in the player build (MonoBehaviours, states, configs)
+- `Shared/` — pure C# code reusable across Runtime AND Editor (design patterns, interfaces, generic utilities). No Unity engine dependencies. Example: `Shared/FSM/` contains `IState`, `ITickable`, `StateMachine<T>`
+- `Editor/` — Unity Editor tooling only (custom inspectors, drawers, wizards)
+- `Tests/` — unit and integration tests, mirroring the assembly they cover (`Tests/Shared/`, `Tests/Runtime/`)
+- When in doubt whether code belongs in `Runtime/` or `Shared/`: if it has no `using UnityEngine` and could be used in an Editor script, it goes in `Shared/`
+
 ## Namespace Convention
 Namespace must mirror the folder path under `Scripts/`.
-Pattern: `SimpleGamesLover.Protocol.{Assembly}.{Subfolder}`.
-Example: a file at `Scripts/SimpleGamesLover/Protocol/Runtime/Movement/CharacterMover2D.cs` → namespace `SimpleGamesLover.Protocol.Runtime.Movement`.
+Pattern: `SGL.Protocol.{Assembly}.{Subfolder}`.
+Example: a file at `Scripts/SGL/Protocol/Runtime/Movement/CharacterMover2D.cs` → namespace `SGL.Protocol.Runtime.Movement`.
 Do not hardcode namespaces in task descriptions — derive them from the file's folder location.
 
 ## Unity Conventions

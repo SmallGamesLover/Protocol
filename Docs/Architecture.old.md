@@ -40,7 +40,6 @@ Example: `Vector2Extensions.cs`.
 - `HorizontalMoveParams` — `Runtime/Movement/HorizontalMoveParams.cs` — `readonly struct`. Encapsulates `MaxSpeed`, `Acceleration`, `Deceleration` and the shared `Apply(velX, input, dt)` formula. Used by all five sub-states. Depends on: `Mathf`.
 - `CollisionSlideResolver2D` — `Runtime/Movement/CollisionSlideResolver2D.cs` — recursive collide-and-slide. Accepts optional `shouldIgnore` predicate (Strategy Pattern) applied after the dot-product filter. Returns safe displacement. `SKIN_WIDTH = 0.03f`, `MAX_BOUNCES = 3`. Depends on: `Vector2Extensions`, `Rigidbody2D`.
 - `PlayerInputReader` — `Runtime/Movement/PlayerInputReader.cs` — reads `Keyboard.current` (New Input System, no `.inputactions` asset). Calls `CharacterMover2D` public API. The only file referencing `Keyboard`/`Mouse`. Depends on: `UnityEngine.InputSystem`, `CharacterMover2D`.
-- `MovementDebugOverlay` — `Runtime/Movement/MovementDebugOverlay.cs` — Editor-only OnGUI dashboard + velocity Gizmo for `CharacterMover2D`. All logic wrapped in `#if UNITY_EDITOR`; empty MonoBehaviour in builds (no overhead, no missing-script errors). F1 toggles both overlays at runtime. Depends on: `CharacterMover2D`, `WalkingConfig`, `UnityEngine.InputSystem` (Editor only).
 - `WalkingState` — `Runtime/Movement/States/WalkingState.cs` — top-level FSM state. Owns a second `StateMachine<IState>` for sub-states. `OnEnter` calls `ResolveSubState()`. Manages coyote timer start on edge walk-off. Depends on: `CharacterMover2D`, `WalkingConfig`, `StateMachine<IState>`.
 - `DodgeState` — `Runtime/Movement/States/DodgeState.cs` — top-level FSM state. Horizontal dodge with distance-based tracking. `OnEnter` zeroes vertical velocity, captures direction, consumes the dodge request. `IsFinished` signals the FSM to return to `WalkingState`. Depends on: `CharacterMover2D`, `DodgeConfig`.
 - `IdleSubState` — `Runtime/Movement/States/IdleSubState.cs` — no input, grounded. Decelerates to zero via `GroundWalkParams.Apply(v.x, 0f, dt)`. Depends on: `CharacterMover2D`, `WalkingConfig`.
@@ -153,7 +152,6 @@ CharacterMover2D.FixedUpdate()
 ### Shared state on CharacterMover2D (read/written by sub-states)
 
 - `Velocity` — written by all sub-states and DodgeState; read by `ApplyMovement`
-- `ResolvedVelocity` — written by `ApplyMovement` after `CollideAndSlide`; read by `MovementDebugOverlay` gizmo
 - `HorizontalInput` — written by `Move()`; read by Walk/Run/Jump/Fall sub-states
 - `IsGrounded` — written by `FixedUpdate` ground check; read by transition conditions
 - `IsCeiling` — written by `FixedUpdate` ceiling check; read by `FixedUpdate` (zero velocity.y)
@@ -165,7 +163,6 @@ CharacterMover2D.FixedUpdate()
 - `CoyoteTimer` — set in `WalkingState.Tick()`, decremented in `FallSubState.Tick()`; read by transitions
 - `JumpBufferTimer` — set+decremented in `FallSubState.Tick()`, cleared in `JumpSubState.OnEnter()`; read by transitions
 - `_dropThroughTarget` — set by `DropThrough()`, cleared by positional check in `FixedUpdate`; read by `ShouldIgnorePlatformHit`, `CheckGround`
-- `DebugStateName` / `DebugSubStateName` / `DebugIsDropThroughActive` — read-only debug properties; read by `MovementDebugOverlay`
 
 ---
 
@@ -207,9 +204,6 @@ Both jump and dodge use the same pattern: the input reader calls `Jump()`/`Dodge
 **Separation of collision resolution**
 `CollisionSlideResolver2D` only returns a displacement vector — it never calls `MovePosition`. `ApplyMovement()` applies it. Makes the resolver reusable by any future movement component (e.g. `FlyingState`).
 
-**Conditional compilation for debug tooling**
-`MovementDebugOverlay` wraps all logic in `#if UNITY_EDITOR`. The class shell exists in all builds to avoid missing-script errors; zero runtime overhead in player builds.
-
 ---
 
 ## Open Decisions / Planned Work
@@ -217,5 +211,6 @@ Both jump and dodge use the same pattern: the input reader calls `Jump()`/`Dodge
 - **FlyingState** (post-prototype): airborne movement without gravity, uses `direction.y` from `Move()`. Reuses `CollisionSlideResolver2D`.
 - **Slope handling**: `OverlapBox` ground check doesn't reliably detect angled surfaces. Running downhill produces a staircase effect. No fix scheduled.
 - **Input actions asset**: `Keyboard.current` is read directly (no `.inputactions`). Rebinding and gamepad support will require migrating to `InputActionAsset` in a later phase.
-- **Dodge key binding**: Shift is currently used for both Run (hold) and Dodge (tap). Placeholder for prototype — final binding TBD when the input system is formalized.
+- **Dodge key binding**: Shift is currently used for both Run (hold) and Dodge (tap). Placeholder for prototype — final binding TBD during Phase 7 or when the input system is formalized.
+- **Debug FSM display**: `OnGUI` overlay showing current top-level state + sub-state name planned for Phase 7.
 - **Drop-through safety timer**: `_dropThroughTarget` cleared positionally. If the character gets stuck inside a platform (teleport, destroyed collider), the flag may never clear. Mitigation: add a 0.3–0.5s fallback timeout in `WalkingConfig`. See `CharacterMover2D_Notes.md`.
