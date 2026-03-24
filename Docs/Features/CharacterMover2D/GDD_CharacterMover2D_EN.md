@@ -272,6 +272,10 @@ CharacterMover2D (MonoBehaviour, top FSM owner)
     ├── DodgeConfig (ScriptableObject)
     ├── HorizontalMoveParams (readonly struct, value object)
     └── CollisionSlideResolver2D (utility class)
+
+MovementDebugOverlay (MonoBehaviour, same GameObject)
+    reads from CharacterMover2D via public properties
+    editor-only logic, empty shell in builds
 ```
 
 ### Interfaces
@@ -325,6 +329,15 @@ An independent component, unaware of the input source. Whether it is driven by t
 | `_dropThroughTarget` | `Collider2D` | The specific platform collider being dropped through. Set by `DropThrough()`, cleared when the character's bottom edge passes below the platform's top edge |
 | `_platformLayer` | `int` | Platform layer index, cached in `Awake()` via `LayerMask.NameToLayer("Platform")`. Used in the hit-filtering predicate for int-to-int comparison with `gameObject.layer` |
 
+**Debug Properties (editor-only):**
+
+Properties prefixed with `Debug` to signal they are not for runtime game logic. Getter bodies wrapped in `#if UNITY_EDITOR`; `#else` returns inert values (`""`, `false`). The property declarations remain in builds to avoid missing-member compilation errors from accidental references.
+
+| Property | Type | Description |
+|---|---|---|
+| `DebugStateName` | `string` | Composite FSM state name. `"Walking > {sub}"` when in WalkingState, otherwise top-level state type name |
+| `DebugIsDropThroughActive` | `bool` | `_dropThroughTarget != null`. Exposes the flag without revealing the private collider reference |
+
 ### WalkingConfig
 ScriptableObject with parameters for `WalkingState`. Tweakable in the Inspector during Play Mode without recompilation. Used by both the player and enemies — different instances with different values.
 
@@ -357,6 +370,39 @@ Vector2 displacement = _collisionResolver.CollideAndSlide(
     Velocity * deltaTime, _contactFilter, ShouldIgnorePlatformHit);
 _rigidbody.MovePosition(_rigidbody.position + displacement);
 ```
+
+### WalkingState — Debug Property
+
+`WalkingState` exposes a single debug property for the overlay:
+
+| Property | Type | Description |
+|---|---|---|
+| `DebugSubStateName` | `string` | `_subFsm.CurrentState?.GetType().Name ?? "None"`. Editor-only getter body, returns `""` in builds |
+
+The sub-FSM itself remains private. Only the current sub-state's type name is readable from outside — enough for debug display, no control surface exposed.
+
+### MovementDebugOverlay
+
+A MonoBehaviour attached to the same GameObject as `CharacterMover2D`. Responsible for all runtime debug visualization — OnGUI text dashboard and velocity Gizmo. Reads data through public properties on the mover; the mover is unaware of the overlay's existence.
+
+**Separation from CharacterMover2D:** ground/ceiling check Gizmos remain in `CharacterMover2D.OnDrawGizmos()` because they visualize *configuration* (box position, size, layer mask). The velocity Gizmo and OnGUI dashboard visualize *runtime behavior* — a different responsibility that belongs in a dedicated debug component.
+
+**Conditional compilation:** the class shell exists in all builds. Method bodies and the `using UnityEngine.InputSystem` import are wrapped in `#if UNITY_EDITOR`. Serialized fields remain unwrapped. In builds, the component is an empty MonoBehaviour — no logic, no overhead, no "Missing script" errors.
+
+**Visibility controls:**
+
+| Control | Scope |
+|---|---|
+| `ShowOverlay` (serialized bool) | OnGUI text dashboard |
+| `ShowVelocityGizmo` (serialized bool) | Velocity line Gizmo in Scene View |
+| F1 key (Play Mode) | Master toggle — flips both bools simultaneously |
+| Component enabled/disabled | Disables everything |
+
+`OnDrawGizmos()` explicitly checks `!enabled` because Unity calls this method even on disabled MonoBehaviours — unlike `OnGUI()` which Unity skips automatically.
+
+**Dashboard content (OnGUI):** FSM state name, velocity vector and magnitude, grounded/ceiling bools, coyote and jump buffer timers (as `current / max`), all request flags, horizontal and vertical input values. Positioned top-left with a semi-transparent black background.
+
+**Velocity Gizmo (OnDrawGizmos):** yellow line from `transform.position` in the direction of `Velocity`, scaled by a serialized `VelocityGizmoScale` multiplier for visual clarity.
 
 ---
 

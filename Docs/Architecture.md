@@ -47,7 +47,6 @@ Example: `Vector2Extensions.cs`.
 - `RunSubState` — `Runtime/Movement/States/RunSubState.cs` — horizontal input + Shift. Accelerates to `RunSpeed` via `GroundRunParams.Apply()`. Depends on: `CharacterMover2D`, `WalkingConfig`.
 - `JumpSubState` — `Runtime/Movement/States/JumpSubState.cs` — `OnEnter`: sets `velocity.y = JumpVelocity`, consumes jump request, clears timers. `Tick`: gravity, low-jump multiplier, air control via `AirParams.Apply()`. Depends on: `CharacterMover2D`, `WalkingConfig`.
 - `FallSubState` — `Runtime/Movement/States/FallSubState.cs` — `Tick`: fall gravity × `FallMultiplier`, clamp to `MaxFallSpeed`, air control, jump buffer capture, timer decrement. Depends on: `CharacterMover2D`, `WalkingConfig`.
-- `TestMover` — `Runtime/TestMover.cs` — debug-only MonoBehaviour. WASD + `CollisionSlideResolver2D`, no FSM, no gravity. Resolver isolation test. Depends on: `CollisionSlideResolver2D`.
 
 ---
 

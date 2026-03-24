@@ -515,7 +515,7 @@ Verify structural separation in the codebase:
 
 ## Phase 7 — Polish and Tweaking
 
-**Goal:** bring movement feel to an acceptable level before integration with other systems.
+**Goal:** bring movement feel to an acceptable level before integration with other systems. Add debug tooling for runtime FSM and physics inspection.
 
 ### 7.1 Parameter Tweaking
 - Tune `walkSpeed`, `runSpeed`, `acceleration`, `deceleration` using Play Mode + ScriptableObject
@@ -524,12 +524,123 @@ Verify structural separation in the codebase:
 - Tune `coyoteTime`, `jumpBufferTime`
 - Tune `dodgeDistance`, `dodgeSpeed`
 
-### 7.2 Debug Visualization
-- Display current FSM state (top-level + sub-state) in UI or Console
-- Gizmos for ground check, ceiling check, velocity vector, dodge distance
-- Debug Gizmos in CharacterMover2D: desired displacement (yellow), resolved displacement (cyan), both with wireframe boxes and SKIN_WIDTH zones
+### 7.2 Debug Data Exposure (7A)
 
-### 7.3 Edge Cases
+Three read-only properties are added to expose FSM state names and internal flags for the debug overlay. All three use the `Debug` prefix in their names to signal they are not intended for runtime game logic.
+
+**WalkingState — `DebugSubStateName`:**
+
+```csharp
+public string DebugSubStateName =>
+#if UNITY_EDITOR
+    _subFsm.CurrentState?.GetType().Name ?? "None";
+#else
+    "";
+#endif
+```
+
+Uses `GetType().Name` (lightweight reflection) instead of adding a `Name` property to `IState`. The sub-FSM itself remains private — only the current state's type name is exposed.
+
+**CharacterMover2D — `DebugStateName`:**
+
+```csharp
+public string DebugStateName =>
+#if UNITY_EDITOR
+    _topFsm.CurrentState == _walkingState
+        ? $"Walking > {_walkingState.DebugSubStateName}"
+        : _topFsm.CurrentState?.GetType().Name ?? "None";
+#else
+    "";
+#endif
+```
+
+Uses the typed `_walkingState` reference already stored for transition registration — no new fields needed. Produces strings like `"Walking > Fall"`, `"Walking > IdleSubState"`, `"Dodge"`.
+
+**CharacterMover2D — `DebugIsDropThroughActive`:**
+
+```csharp
+public bool DebugIsDropThroughActive =>
+#if UNITY_EDITOR
+    _dropThroughTarget != null;
+#else
+    false;
+#endif
+```
+
+Avoids exposing the private `Collider2D` field. The overlay only needs a bool to display the flag status.
+
+**Conditional compilation strategy:** getter bodies are wrapped in `#if UNITY_EDITOR`, not the property declarations. In `#else` branches, properties return inert values (`""`, `false`). This ensures:
+- No compilation errors if any code accidentally references these properties outside of `#if UNITY_EDITOR` blocks
+- Zero runtime work in builds — the compiler optimizes away constant returns
+- No "missing member" errors from serialized references
+
+### 7.3 MovementDebugOverlay (7B)
+
+A separate MonoBehaviour in `Runtime/Movement/` responsible for all runtime debug visualization. Attached to the same GameObject as `CharacterMover2D`. Reads data through public properties — the mover is unaware of the overlay's existence (Single Responsibility Principle).
+
+**Why a separate component, not code inside CharacterMover2D:**
+- `CharacterMover2D` is responsible for movement, not debug display
+- The overlay can be disabled, removed, or attached to enemy GameObjects independently
+- Gizmo and OnGUI code does not clutter the movement logic
+- Ground/ceiling check gizmos remain in `CharacterMover2D.OnDrawGizmos()` — they visualize the mover's *configuration* (box position, size), not runtime behavior
+
+**Conditional compilation strategy:** the class shell is NOT wrapped in `#if UNITY_EDITOR`. If the entire class were editor-only, any GameObject with this component in a scene would show "Missing script" errors in builds. Instead:
+- `using UnityEngine.InputSystem` is wrapped in `#if UNITY_EDITOR`
+- All method bodies (`Awake()`, `Update()`, `OnGUI()`, `OnDrawGizmos()`) are wrapped in `#if UNITY_EDITOR`
+- Serialized fields (`ShowOverlay`, `ShowVelocityGizmo`, `VelocityGizmoScale`, mover reference) remain unwrapped to avoid deserialization warnings
+- In builds, the class compiles as an empty MonoBehaviour — no logic, no input dependency, no overhead
+
+**Visibility controls — two independent toggles:**
+
+| Field | Controls | Default |
+|---|---|---|
+| `ShowOverlay` | OnGUI text dashboard | `true` |
+| `ShowVelocityGizmo` | Velocity line in Scene View | `true` |
+
+Three ways to disable all debug visualization:
+1. Set both bools to `false` in Inspector — granular control
+2. Press F1 in Play Mode — master toggle, flips both bools simultaneously
+3. Disable the component — `OnGUI()` is not called by Unity on disabled MonoBehaviours; `OnDrawGizmos()` checks `!enabled` explicitly (Unity calls it even on disabled components)
+
+**OnGUI Dashboard — layout and content:**
+
+Positioned in the top-left corner of Game View. Semi-transparent black `GUI.Box` background for readability on any scene. Data grouped in four labeled blocks:
+
+```
+[FSM]
+State: Walking > Fall
+
+[Physics]
+Velocity: (3.2, -5.1)
+Speed: 6.0
+Grounded: false | Ceiling: false
+
+[Timers]
+Coyote: 0.00 / 0.12
+Buffer: 0.08 / 0.10
+
+[Flags]
+JumpReq: false | JumpHeld: true
+DodgeReq: false | RunReq: false
+DropThrough: false
+Input X: 1.0 | Input Y: 0.0
+```
+
+Timer values shown as `current / max` to make it immediately clear whether a timer is active and how much time remains relative to the configured window. Max values come from `WalkingConfig` (`CoyoteTime`, `JumpBufferTime`).
+
+**Why OnGUI (IMGUI) instead of Canvas/UI Toolkit:** zero asset dependencies, no GameObjects in the scene hierarchy, no font imports, no Canvas scaler configuration. Renders directly in Game View via immediate-mode calls. Visual quality is irrelevant for a debug overlay — function matters.
+
+**Velocity Gizmo:**
+
+Drawn in `OnDrawGizmos()` — visible in Scene View (not Game View). Yellow line from `transform.position` in the direction of `Velocity`, scaled by `VelocityGizmoScale` (serialized float, default 0.5) for visual clarity. A small arrowhead or thicker endpoint indicates direction.
+
+The `!enabled` guard in `OnDrawGizmos()` is critical: unlike `Update()` and `OnGUI()`, Unity calls `OnDrawGizmos()` on disabled MonoBehaviours. Without the guard, disabling the component would hide the dashboard but leave the gizmo visible — inconsistent behavior.
+
+**F1 Master Toggle:**
+
+`Update()` listens for `Keyboard.current.f1Key.wasPressedThisFrame` and flips both `ShowOverlay` and `ShowVelocityGizmo`. This is a convenience shortcut for quick on/off during Play Mode testing without switching to Inspector. The `using UnityEngine.InputSystem` import is wrapped in `#if UNITY_EDITOR` alongside the method body — in builds, `Update()` is empty and has no input system dependency.
+
+### 7.4 Edge Cases
 - Dodge in a corner between wall and floor
 - Jump into ceiling at close range
 - Rapid direction switching

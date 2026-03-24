@@ -124,17 +124,33 @@
     - [x] 102. Document findings from tasks 87–96 in `CharacterMover2D_Notes.md` under a new section "API Behavioral Notes — Hostile Input Patterns"
 
 - [ ] Phase 7: Polish and tweaking
-  - [ ] 103. Tune `WalkSpeed`, `RunSpeed`, `Acceleration`, `Deceleration` via ScriptableObject in Play Mode
-  - [ ] 104. Tune `AirAcceleration`, `AirDeceleration` — balance responsiveness vs momentum
-  - [ ] 105. Tune `JumpHeight`, `TimeToApex`, `TimeToDescent`, `LowJumpMultiplier`, `MaxFallSpeed`
-  - [ ] 106. Tune `CoyoteTime`, `JumpBufferTime`
-  - [ ] 107. Tune `DodgeDistance`, `DodgeSpeed`
-  - [ ] 108. Add debug FSM display: show current top-level state name + sub-state name in `OnGUI()` or Console log
-  - [ ] 109. Add Gizmos: velocity vector, dodge distance preview
-  - [ ] 110. Test edge case: dodge in a corner between wall and floor
-  - [ ] 111. Test edge case: jump into ceiling at point-blank range
-  - [ ] 112. Test edge case: rapid direction switching (A→D→A quickly)
-  - [ ] 113. Test edge case: dodge at platform edge (no teleporting through floor)
-  - [ ] 114. Test edge case: multiple jump presses in a single frame
-  - [ ] 115. Test edge case: jump + hold direction into wall — slide along wall, no stick
-  - [ ] 116. Test edge case: stand in 90° corner, hold into wall — no penetration
+  - [x] 103. Tune `WalkSpeed`, `RunSpeed`, `Acceleration`, `Deceleration` via ScriptableObject in Play Mode
+  - [x] 104. Tune `AirAcceleration`, `AirDeceleration` — balance responsiveness vs momentum
+  - [x] 105. Tune `JumpHeight`, `TimeToApex`, `TimeToDescent`, `LowJumpMultiplier`, `MaxFallSpeed`
+  - [x] 106. Tune `CoyoteTime`, `JumpBufferTime`
+  - [x] 107. Tune `DodgeDistance`, `DodgeSpeed`
+  - [ ] **7A — Expose debug data from FSM**
+    - [ ] 108. Add public read-only property `string DebugSubStateName` to `WalkingState` — returns `_subFsm.CurrentState?.GetType().Name ?? "None"`. The `Debug` prefix signals this is not for runtime use. This is the only addition to `WalkingState`; the sub-FSM itself remains private
+    - [ ] 109. Add public read-only property `string DebugStateName` to `CharacterMover2D`. If `_topFsm.CurrentState == _walkingState`, return `$"Walking > {_walkingState.DebugSubStateName}"`. Otherwise return `_topFsm.CurrentState?.GetType().Name ?? "None"`. Uses the typed refs (`_walkingState`) already stored for transition registration — no new fields needed
+    - [ ] 110. Add public read-only property `bool DebugIsDropThroughActive` to `CharacterMover2D` — returns `_dropThroughTarget != null`. Avoids exposing the private `Collider2D` field while giving the debug overlay the information it needs
+    - [ ] 111. Wrap getter bodies (not declarations) of all three properties in `#if UNITY_EDITOR`. In `#else` branch return `""` for strings and `false` for bool. This keeps the properties compilable in builds (no missing-member errors from any accidental reference) while producing zero runtime work
+  - [ ] **7B — Create `MovementDebugOverlay` MonoBehaviour**
+    - [ ] 112. Create `MovementDebugOverlay` in `Runtime/Movement/`. Do NOT wrap the entire class in `#if UNITY_EDITOR` — the class shell must exist in builds to avoid "Missing script" errors on the GameObject. Add `[SerializeField]` reference to `CharacterMover2D` (or resolve via `GetComponent` in `Awake()`)
+    - [ ] 113. Add two `[SerializeField]` bool fields: `ShowOverlay` (default `true`), `ShowVelocityGizmo` (default `true`). These control OnGUI and Gizmo independently. Disabling the component disables both. Keep fields unwrapped — they must serialize in builds to avoid deserialization warnings
+    - [ ] 114. Wrap `using UnityEngine.InputSystem` and all method bodies (`Awake()`, `Update()`, `OnGUI()`, `OnDrawGizmos()`) in `#if UNITY_EDITOR`. In builds the class compiles as an empty MonoBehaviour — no logic, no input dependency, no overhead
+    - [ ] 115. Add F1 toggle in `Update()`: on `Keyboard.current.f1Key.wasPressedThisFrame`, flip both `ShowOverlay` and `ShowVelocityGizmo` simultaneously. This is a master toggle for quick on/off without the Inspector
+    - [ ] 116. Implement `OnGUI()` — early return if `!ShowOverlay`. Draw a semi-transparent black background `GUI.Box` in the top-left corner for readability on any scene background. Display data in four labeled blocks:
+      - **[FSM]** — `DebugStateName` (e.g., `Walking > Fall`, `Dodge`)
+      - **[Physics]** — `Velocity` as `(x, y)` formatted to one decimal, `Speed` as magnitude, `Grounded` bool, `Ceiling` bool
+      - **[Timers]** — `CoyoteTimer` as `current / max`, `JumpBufferTimer` as `current / max`
+      - **[Flags]** — `IsJumpRequested`, `IsJumpHeld`, `IsDodgeRequested`, `IsRunRequested`, `DebugIsDropThroughActive`, `Input X`, `Input Y`
+    - [ ] 117. Implement `OnDrawGizmos()` — early return if `!enabled || !ShowVelocityGizmo`. Draw a yellow line from `transform.position` in the direction of `CharacterMover2D.Velocity`. Scale length by a `[SerializeField] float VelocityGizmoScale` field (default 0.5) for visual clarity. Add a small arrowhead or thicker end point to indicate direction
+    - [ ] 118. Attach `MovementDebugOverlay` to the player GameObject in the test scene. Verify: overlay displays all data correctly during Play Mode, F1 toggles both overlay and gizmo, individual bools can be toggled independently in Inspector, disabling the component hides everything, velocity gizmo direction and magnitude match actual movement
+  - [ ] **7C — Edge case testing**
+    - [ ] 119. Test edge case: dodge in a corner between wall and floor
+    - [ ] 120. Test edge case: jump into ceiling at point-blank range
+    - [ ] 121. Test edge case: rapid direction switching (A→D→A quickly)
+    - [ ] 122. Test edge case: dodge at platform edge (no teleporting through floor)
+    - [ ] 123. Test edge case: multiple jump presses in a single frame
+    - [ ] 124. Test edge case: jump + hold direction into wall — slide along wall, no stick
+    - [ ] 125. Test edge case: stand in 90° corner, hold into wall — no penetration
