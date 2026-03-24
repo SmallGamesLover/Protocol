@@ -146,11 +146,11 @@
       - **[Flags]** — `IsJumpRequested`, `IsJumpHeld`, `IsDodgeRequested`, `IsRunRequested`, `DebugIsDropThroughActive`, `Input X`, `Input Y`
     - [x] 117. Implement `OnDrawGizmos()` — early return if `!enabled || !ShowVelocityGizmo`. Draw a yellow line from `transform.position` in the direction of `CharacterMover2D.Velocity`. Scale length by a `[SerializeField] float VelocityGizmoScale` field (default 0.5) for visual clarity. Add a small arrowhead or thicker end point to indicate direction. You can get example gizmo debug code from `CharacterMover2D` script.
     - [x] 118. Attach `MovementDebugOverlay` to the player GameObject in the test scene. Verify: overlay displays all data correctly during Play Mode, F1 toggles both overlay and gizmo, individual bools can be toggled independently in Inspector, disabling the component hides everything, velocity gizmo direction and magnitude match actual movement
-  - [ ] **7C — Edge case testing**
-    - [ ] 119. Test edge case: dodge in a corner between wall and floor
-    - [ ] 120. Test edge case: jump into ceiling at point-blank range
-    - [ ] 121. Test edge case: rapid direction switching (A→D→A quickly)
-    - [ ] 122. Test edge case: dodge at platform edge (no teleporting through floor)
-    - [ ] 123. Test edge case: multiple jump presses in a single frame
-    - [ ] 124. Test edge case: jump + hold direction into wall — slide along wall, no stick
-    - [ ] 125. Test edge case: stand in 90° corner, hold into wall — no penetration
+  - [x] **7C — Edge case testing**
+    - [x] 119. Test edge case: dodge in a corner between wall and floor
+    - [x] 120. Test edge case: jump into ceiling at point-blank range
+    - [x] 121. Test edge case: rapid direction switching (A→D→A quickly)
+    - [x] 122. Test edge case: dodge at platform edge (no teleporting through floor)
+    - [x] 123. Test edge case: multiple jump presses in a single frame
+    - [x] 124. Test edge case: jump + hold direction into wall — slide along wall, no stick
+    - [x] 125. Test edge case: stand in 90° corner, hold into wall — no penetration
