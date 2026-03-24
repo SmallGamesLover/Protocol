@@ -145,7 +145,7 @@
       - **[Timers]** — `CoyoteTimer` as `current / max`, `JumpBufferTimer` as `current / max`
       - **[Flags]** — `IsJumpRequested`, `IsJumpHeld`, `IsDodgeRequested`, `IsRunRequested`, `DebugIsDropThroughActive`, `Input X`, `Input Y`
     - [x] 117. Implement `OnDrawGizmos()` — early return if `!enabled || !ShowVelocityGizmo`. Draw a yellow line from `transform.position` in the direction of `CharacterMover2D.Velocity`. Scale length by a `[SerializeField] float VelocityGizmoScale` field (default 0.5) for visual clarity. Add a small arrowhead or thicker end point to indicate direction. You can get example gizmo debug code from `CharacterMover2D` script.
-    - [ ] 118. Attach `MovementDebugOverlay` to the player GameObject in the test scene. Verify: overlay displays all data correctly during Play Mode, F1 toggles both overlay and gizmo, individual bools can be toggled independently in Inspector, disabling the component hides everything, velocity gizmo direction and magnitude match actual movement
+    - [x] 118. Attach `MovementDebugOverlay` to the player GameObject in the test scene. Verify: overlay displays all data correctly during Play Mode, F1 toggles both overlay and gizmo, individual bools can be toggled independently in Inspector, disabling the component hides everything, velocity gizmo direction and magnitude match actual movement
   - [ ] **7C — Edge case testing**
     - [ ] 119. Test edge case: dodge in a corner between wall and floor
     - [ ] 120. Test edge case: jump into ceiling at point-blank range

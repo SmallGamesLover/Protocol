@@ -13,8 +13,6 @@ namespace SGL.Protocol.Runtime.Movement
     /// </summary>
     public class MovementDebugOverlay : MonoBehaviour
     {
-        [SerializeField] private CharacterMover2D _mover;
-
         /// <summary>
         /// WalkingConfig reference used to display CoyoteTime and JumpBufferTime max values.
         /// Assign the same asset instance used by CharacterMover2D.
@@ -30,13 +28,14 @@ namespace SGL.Protocol.Runtime.Movement
         /// <summary>Multiplier applied to the velocity vector length when drawing the Gizmo.</summary>
         [SerializeField] public float VelocityGizmoScale = 0.5f;
 
+        private CharacterMover2D _mover;
+
 #if UNITY_EDITOR
         private GUIStyle _labelStyle;
 
-        private void Awake()
+        private void Start()
         {
-            if (_mover == null)
-                _mover = GetComponent<CharacterMover2D>();
+            _mover = GetComponent<CharacterMover2D>();
         }
 
         private void Update()
