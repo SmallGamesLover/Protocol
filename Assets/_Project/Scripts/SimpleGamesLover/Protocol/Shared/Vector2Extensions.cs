@@ -2,6 +2,9 @@ using UnityEngine;
 
 namespace SGL.Protocol.Shared
 {
+    /// <summary>
+    /// Extension methods for <see cref="UnityEngine.Vector2"/>.
+    /// </summary>
     public static class Vector2Extensions
     {
         /// <summary>

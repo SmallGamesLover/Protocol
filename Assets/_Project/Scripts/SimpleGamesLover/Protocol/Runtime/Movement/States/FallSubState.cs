@@ -33,18 +33,18 @@ namespace SGL.Protocol.Runtime.Movement.States
         /// </summary>
         public void Tick(float deltaTime)
         {
-            // Task 44: capture a jump press into the buffer while airborne
+            // Capture a jump press into the buffer while airborne.
             if (_mover.IsJumpRequested)
             {
                 _mover.JumpBufferTimer = _config.JumpBufferTime;
                 _mover.ConsumeJumpRequest();
             }
 
-            // Task 43: decrement both timers
+            // Decrement both timers each tick.
             _mover.CoyoteTimer     = Mathf.Max(0f, _mover.CoyoteTimer     - deltaTime);
             _mover.JumpBufferTimer = Mathf.Max(0f, _mover.JumpBufferTimer - deltaTime);
 
-            // Task 41: apply fall gravity and cap speed
+            // Apply fall gravity and cap speed.
             Vector2 v = _mover.Velocity;
             v.y += _config.Gravity * _config.FallMultiplier * deltaTime;
             v.y  = Mathf.Max(v.y, -_config.MaxFallSpeed);

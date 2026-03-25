@@ -195,3 +195,20 @@ tick applies partial acceleration from the alternating targets.
 
 **Concern:** identical to task 95. Future side-effect systems must
 debounce state-entry events.
+
+## State coupling to CharacterMover2D (deferred)
+
+All state classes (`WalkingState`, `DodgeState`, `IdleSubState`, `WalkSubState`,
+`RunSubState`, `JumpSubState`, `FallSubState`) receive `CharacterMover2D` as a
+constructor argument and access its properties directly. This couples every state
+to a `MonoBehaviour`, making pure unit testing impractical without Unity's test
+framework.
+
+Introducing an `ICharacterMover` interface (exposing `Velocity`, `IsGrounded`,
+`HorizontalInput`, etc.) would allow state logic to be tested with simple stub
+implementations and would decouple the FSM layer from the Unity lifecycle.
+
+The typed references to `WalkingState` and `DodgeState` in `CharacterMover2D`
+(lines 31–32) are intentional — they are needed for transition condition lambdas
+(`_dodgeState.IsFinished`). This coupling is acceptable and architecturally
+justified given the current design.

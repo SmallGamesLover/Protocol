@@ -10,10 +10,14 @@ namespace SGL.Protocol.Runtime.Movement
     public class DodgeConfig : ScriptableObject
     {
         /// <summary>Dodge distance in world units.</summary>
-        [SerializeField] public float DodgeDistance = 3f;
+        [field: SerializeField]
+        [field: Min(0.01f)]
+        public float DodgeDistance { get; private set; } = 3f;
 
         /// <summary>Dodge speed in units per second.</summary>
-        [SerializeField] public float DodgeSpeed = 15f;
+        [field: SerializeField]
+        [field: Min(0.01f)]
+        public float DodgeSpeed { get; private set; } = 15f;
 
         /// <summary>
         /// Computed dodge duration. Not used internally — for external systems

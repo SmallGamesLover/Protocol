@@ -9,16 +9,34 @@ namespace SGL.Protocol.Runtime.Movement
     /// Input-agnostic: driven by PlayerInputReader or AI.
     /// </summary>
     [RequireComponent(typeof(Rigidbody2D))]
+    [RequireComponent(typeof(BoxCollider2D))]
     public class CharacterMover2D : MonoBehaviour
     {
+        [Header("Configuration")]
+        [Tooltip("Movement parameters: walk/run speeds, jump height, coyote time, etc.")]
         [SerializeField] private WalkingConfig WalkingConfig;
+
+        [Tooltip("Dodge parameters: distance and speed.")]
         [SerializeField] private DodgeConfig DodgeConfig;
 
+        [Header("Ground Detection")]
+        [Tooltip("Width and height of the overlap box used to detect ground contact.")]
         [SerializeField] private Vector2 GroundCheckSize = new Vector2(0.9f, 0.05f);
+
+        [Tooltip("Offset from the character's pivot to the centre of the ground check box.")]
         [SerializeField] private Vector2 GroundCheckOffset = new Vector2(0f, 0f);
-        [SerializeField] private Vector2 CeilingCheckSize = new Vector2(0.9f, 0.05f);
-        [SerializeField] private Vector2 CeilingCheckOffset = new Vector2(0f, 0f);
+
+        [Tooltip("Layers considered as ground and platforms.")]
         [SerializeField] private LayerMask GroundLayerMask;
+
+        [Header("Ceiling Detection")]
+        [Tooltip("Width and height of the overlap box used to detect ceiling contact.")]
+        [SerializeField] private Vector2 CeilingCheckSize = new Vector2(0.9f, 0.05f);
+
+        [Tooltip("Offset from the character's pivot to the centre of the ceiling check box.")]
+        [SerializeField] private Vector2 CeilingCheckOffset = new Vector2(0f, 0f);
+
+        [Tooltip("Layers considered as ceiling surfaces.")]
         [SerializeField] private LayerMask CeilingLayerMask;
 
         private Rigidbody2D _rigidbody;
@@ -40,6 +58,7 @@ namespace SGL.Protocol.Runtime.Movement
         /// <summary>True when the character is standing on ground or a platform.</summary>
         public bool IsGrounded { get; private set; }
 
+        /// <summary>True when the character's head is touching a ceiling surface.</summary>
         public bool IsCeiling { get; private set; }
 
         /// <summary>Current movement velocity. Read and written by FSM sub-states.</summary>

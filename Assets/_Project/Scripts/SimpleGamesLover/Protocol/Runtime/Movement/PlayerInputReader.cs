@@ -7,6 +7,7 @@ namespace SGL.Protocol.Runtime.Movement
     /// Reads raw keyboard input and forwards movement commands to CharacterMover2D.
     /// Uses UnityEngine.InputSystem (Keyboard.current) — no .inputactions asset required.
     /// </summary>
+    [RequireComponent(typeof(CharacterMover2D))]
     public class PlayerInputReader : MonoBehaviour
     {
         private CharacterMover2D _mover;

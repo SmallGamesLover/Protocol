@@ -50,7 +50,7 @@ namespace SGL.Protocol.Runtime.Movement.States
         public void OnEnter() => ResolveSubState();
 
         /// <summary>Exits the active sub-state cleanly.</summary>
-        public void OnExit() => _subFsm.CurrentState.OnExit();
+        public void OnExit() => _subFsm.CurrentState?.OnExit();
 
         /// <summary>
         /// Evaluates transitions, starts coyote timer on edge walk-off,
@@ -61,8 +61,8 @@ namespace SGL.Protocol.Runtime.Movement.States
             var prevState = _subFsm.CurrentState;
             _subFsm.EvaluateTransitions();
 
-            // Task 43: start coyote timer when walking off an edge.
-            // Condition: just entered Fall, but NOT from Jump (that would allow double-jump via coyote).
+            // Start coyote timer when walking off an edge.
+            // Guard: not from Jump — that would allow double-jump via coyote.
             if (_subFsm.CurrentState == _fall && prevState != _jump && prevState != _fall)
                 _mover.CoyoteTimer = _config.CoyoteTime;
 
@@ -123,7 +123,7 @@ namespace SGL.Protocol.Runtime.Movement.States
         /// <summary>
         /// Picks the initial sub-state based on current conditions.
         /// Called on entry so that WalkingState never defaults blindly to Idle.
-        /// Task 45: airborne entry resolves to FallSubState.
+        /// Airborne entry resolves to FallSubState — critical after a mid-air dodge.
         /// </summary>
         private void ResolveSubState()
         {

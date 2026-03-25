@@ -11,12 +11,15 @@ namespace SGL.Protocol.Runtime.Movement
     /// </summary>
     public class CollisionSlideResolver2D
     {
+        /// <summary>Maximum number of collision bounces per frame before movement is discarded.</summary>
         public const int MAX_BOUNCES = 3;
+
+        /// <summary>Minimum gap maintained between the collider and any surface (world units).</summary>
         public const float SKIN_WIDTH = 0.015f;
 
         private readonly List<RaycastHit2D> _hitBuffer = new List<RaycastHit2D>(16);
 
-        private Rigidbody2D _rb;
+        private readonly Rigidbody2D _rb;
 
         public CollisionSlideResolver2D(Rigidbody2D rb)
         {
@@ -88,16 +91,13 @@ namespace SGL.Protocol.Runtime.Movement
                 bool wedged = previousNormal != null
                     && Vector2.Dot(remainingVelocity, previousNormal.Value) < 0f;
 
-                //LogBounce(bounce, position, velocity, hit.distance, safeMoveDist,
-                //    safeDisplacement, remainingVelocity, hit.normal, previousNormal, wedged);
-
                 // Recurse: slide along the surface from the new position.
                 // The total displacement is the safe portion plus whatever
                 // the next recursion level resolves from the slide vector.
-                if (wedged == false)
+                if (!wedged)
                     return safeDisplacement + CollideAndSlide(position + safeDisplacement, remainingVelocity, contactFilter, shouldIgnore, hit.normal, bounce + 1);
-                else
-                    return safeDisplacement;
+
+                return safeDisplacement;
             }
 
             // No collision — the entire velocity can be applied as displacement.
