@@ -8,7 +8,7 @@
 
 ```
 Assets/_Project/Scripts/SimpleGamesLover/Protocol/
-    Shared/          — pure C# only, no UnityEngine dependency
+    Shared/          — Scripts that are usable in Runtime and Editor assemblies
         FSM/         — generic FSM infrastructure
     Runtime/         — MonoBehaviours, states, configs; Unity API allowed
         Movement/
