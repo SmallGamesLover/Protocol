@@ -10,6 +10,7 @@ namespace SGL.Protocol.Runtime.Core
     /// </summary>
     [RequireComponent(typeof(CharacterMover2D))]
     [RequireComponent(typeof(PlayerInputReader))]
+    [RequireComponent(typeof(MovementDebugOverlay))]
     public class PlayerCompositionRoot : MonoBehaviour
     {
         [Header("Movement")]
@@ -23,6 +24,9 @@ namespace SGL.Protocol.Runtime.Core
 
             var inputReader = GetComponent<PlayerInputReader>();
             inputReader.Initialize(mover);
+
+            var debugOverlay = GetComponent<MovementDebugOverlay>();
+            debugOverlay.Initialize(mover, WalkingConfig);
         }
     }
 }

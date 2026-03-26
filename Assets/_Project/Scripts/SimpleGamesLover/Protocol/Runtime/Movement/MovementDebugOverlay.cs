@@ -14,12 +14,6 @@ namespace SGL.Protocol.Runtime.Movement
     /// </summary>
     public class MovementDebugOverlay : MonoBehaviour
     {
-        /// <summary>
-        /// WalkingConfig reference used to display CoyoteTime and JumpBufferTime max values.
-        /// Assign the same asset instance used by CharacterMover2D.
-        /// </summary>
-        [SerializeField] private WalkingConfig WalkingConfig;
-
         /// <summary>Toggle the OnGUI text dashboard. Can be controlled independently in the Inspector.</summary>
         [SerializeField] private bool ShowOverlay = true;
 
@@ -29,23 +23,36 @@ namespace SGL.Protocol.Runtime.Movement
         /// <summary>Multiplier applied to the velocity vector length when drawing the Gizmo.</summary>
         [SerializeField, Range(0.01f, 5f)] private float VelocityGizmoScale = 0.5f;
 
-        private CharacterMover2D _mover;
+        private bool _initialized;
+
+        /// <summary>
+        /// Wires the mover and config dependencies. Called by the Composition Root.
+        /// </summary>
+        /// <param name="mover">The CharacterMover2D this overlay will visualize.</param>
+        /// <param name="walkingConfig">Used to display CoyoteTime and JumpBufferTime max values.</param>
+        public void Initialize(CharacterMover2D mover, WalkingConfig walkingConfig)
+        {
+#if UNITY_EDITOR
+            _mover = mover;
+            _walkingConfig = walkingConfig;
+            _initialized = true;
+            // Populate lines immediately so OnGUI never reads null strings
+            // (OnGUI Layout-pass can fire before the first Update).
+            RebuildOverlayLines();
+#endif
+        }
 
 #if UNITY_EDITOR
+        private CharacterMover2D _mover;
+        private WalkingConfig _walkingConfig;
         private GUIStyle _labelStyle;
         private readonly string[] _lines = { "", "", "", "" };
         private readonly StringBuilder _sb = new StringBuilder(256);
 
-        private void Start()
-        {
-            _mover = GetComponent<CharacterMover2D>();
-            // Populate lines immediately so OnGUI never reads null strings
-            // (OnGUI Layout-pass can fire before the first Update).
-            RebuildOverlayLines();
-        }
-
         private void Update()
         {
+            if (!_initialized) return;
+
             // F1 — master toggle: flips both ShowOverlay and ShowVelocityGizmo simultaneously.
             if (Keyboard.current.f1Key.wasPressedThisFrame)
             {
@@ -60,7 +67,7 @@ namespace SGL.Protocol.Runtime.Movement
 
         private void OnGUI()
         {
-            if (!ShowOverlay || _mover == null) return;
+            if (!_initialized || !ShowOverlay || _mover == null) return;
 
             if (_labelStyle == null)
             {
@@ -91,8 +98,8 @@ namespace SGL.Protocol.Runtime.Movement
             if (_mover == null) return;
 
             Vector2 vel = _mover.Velocity;
-            float coyoteMax = WalkingConfig != null ? WalkingConfig.CoyoteTime : 0f;
-            float bufferMax = WalkingConfig != null ? WalkingConfig.JumpBufferTime : 0f;
+            float coyoteMax = _walkingConfig != null ? _walkingConfig.CoyoteTime : 0f;
+            float bufferMax = _walkingConfig != null ? _walkingConfig.JumpBufferTime : 0f;
 
             _sb.Clear();
             _sb.Append("[FSM]     ").Append(_mover.DebugStateName);
@@ -127,7 +134,7 @@ namespace SGL.Protocol.Runtime.Movement
         private void OnDrawGizmos()
         {
             // OnDrawGizmos is called even on disabled MonoBehaviours — guard explicitly.
-            if (!enabled || !ShowVelocityGizmo || _mover == null) return;
+            if (!enabled || !_initialized || !ShowVelocityGizmo || _mover == null) return;
 
             Vector2 origin = transform.position;
             Vector2 velocity = _mover.Velocity * VelocityGizmoScale;

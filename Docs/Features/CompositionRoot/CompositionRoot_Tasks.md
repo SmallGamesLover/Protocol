@@ -18,20 +18,20 @@
   - [x] 11. In Inspector: assign `WalkingConfig` and `DodgeConfig` asset references on `PlayerCompositionRoot` (they were lost when `[SerializeField]` was removed from `CharacterMover2D`)
   - [x] 12. Verify: character moves, jumps, dodges, drops through platforms identically to before. Config tweaking in Play Mode still works. No `[SerializeField]` config fields remain on `CharacterMover2D`
 
-- [ ] Phase 2: Migrate PlayerInputReader
+- [x] Phase 2: Migrate PlayerInputReader
   - [x] 13. In `PlayerInputReader`: add `private bool _initialized` field (default `false`)
   - [x] 14. In `PlayerInputReader`: add early return guard `if (!_initialized) return;` at the top of `Update()`
   - [x] 15. In `PlayerInputReader`: add public method `Initialize(CharacterMover2D mover)`. Store in `private CharacterMover2D _mover;`. Set `_initialized = true` at the end
   - [x] 16. In `PlayerInputReader`: remove the existing mechanism that provides the `CharacterMover2D` reference — whether `[SerializeField]`, `GetComponent` in `Awake()`, or lookup in `Start()`. Remove `Awake()`/`Start()` if they become empty. All references to the mover now use the `_mover` field set by `Initialize`
   - [x] 17. In `PlayerCompositionRoot.Awake()`: add `var inputReader = GetComponent<PlayerInputReader>();` and `inputReader.Initialize(mover);` after the `mover.Initialize(...)` call
-  - [ ] 18. Verify: A/D movement, Space jump, Shift dodge, S drop-through all work. `PlayerInputReader` has no `[SerializeField]` or `GetComponent` reference to `CharacterMover2D`
+  - [x] 18. Verify: A/D movement, Space jump, Shift dodge, S drop-through all work. `PlayerInputReader` has no `[SerializeField]` or `GetComponent` reference to `CharacterMover2D`
 
-- [ ] Phase 3: Migrate MovementDebugOverlay
-  - [ ] 19. In `MovementDebugOverlay`: add `private bool _initialized` field (default `false`). Field is NOT wrapped in `#if UNITY_EDITOR` — it must exist in builds to avoid serialization mismatch
-  - [ ] 20. In `MovementDebugOverlay`: add public method `Initialize(CharacterMover2D mover)`. Inside `#if UNITY_EDITOR` block: store in `private CharacterMover2D _mover;`, set `_initialized = true`. In `#else`: empty body. Field declaration for `_mover` stays inside `#if UNITY_EDITOR`
-  - [ ] 21. In `MovementDebugOverlay`: add `!_initialized` to early return guards in `Update()`, `OnGUI()`, and `OnDrawGizmos()` method bodies (inside existing `#if UNITY_EDITOR` blocks)
-  - [ ] 22. In `MovementDebugOverlay`: remove the existing mechanism that provides the `CharacterMover2D` reference — whether `[SerializeField]` or `GetComponent` in `Awake()`. Remove `Awake()` if it becomes empty
-  - [ ] 23. In `PlayerCompositionRoot.Awake()`: add `var debugOverlay = GetComponent<MovementDebugOverlay>();` and `debugOverlay.Initialize(mover);` after the `inputReader.Initialize(...)` call
+- [x] Phase 3: Migrate MovementDebugOverlay
+  - [x] 19. In `MovementDebugOverlay`: add `private bool _initialized` field (default `false`). Field is NOT wrapped in `#if UNITY_EDITOR` — it must exist in builds to avoid serialization mismatch
+  - [x] 20. In `MovementDebugOverlay`: add public method `Initialize(CharacterMover2D mover)`. Inside `#if UNITY_EDITOR` block: store in `private CharacterMover2D _mover;`, set `_initialized = true`. In `#else`: empty body. Field declaration for `_mover` stays inside `#if UNITY_EDITOR`
+  - [x] 21. In `MovementDebugOverlay`: add `!_initialized` to early return guards in `Update()`, `OnGUI()`, and `OnDrawGizmos()` method bodies (inside existing `#if UNITY_EDITOR` blocks)
+  - [x] 22. In `MovementDebugOverlay`: remove the existing mechanism that provides the `CharacterMover2D` reference — whether `[SerializeField]` or `GetComponent` in `Awake()`. Remove `Awake()` if it becomes empty
+  - [x] 23. In `PlayerCompositionRoot.Awake()`: add `var debugOverlay = GetComponent<MovementDebugOverlay>();` and `debugOverlay.Initialize(mover, WalkingConfig);` after the `inputReader.Initialize(...)` call. In `MovementDebugOverlay`: remove `[SerializeField] private WalkingConfig WalkingConfig` field and add `WalkingConfig walkingConfig` parameter to `Initialize()`. Move `_walkingConfig` field declaration inside `#if UNITY_EDITOR`. Assign from parameter inside the `#if UNITY_EDITOR` block. Update `RebuildOverlayLines()` to use `_walkingConfig` instead of the old field
   - [ ] 24. Verify: debug overlay displays all data correctly, F1 toggle works, velocity gizmo visible in Scene View. `MovementDebugOverlay` has no `[SerializeField]` or `GetComponent` reference to `CharacterMover2D`
 
 - [ ] Phase 4: Documentation
