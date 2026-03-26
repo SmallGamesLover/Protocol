@@ -2,21 +2,21 @@
 > Based on Composition Root Implementation Plan v1.0.0
 > Tasks are ordered chronologically. Complete each phase top-to-bottom before moving to the next.
 
-- [ ] Phase 0: PlayerCompositionRoot stub
-  - [ ] 1. Create folder `Runtime/Core/` under the project scripts root
-  - [ ] 2. Create `PlayerCompositionRoot` MonoBehaviour in `Runtime/Core/` with namespace `SGL.Protocol.Runtime.Core`. Empty `Awake()` body, no fields
-  - [ ] 3. Attach `PlayerCompositionRoot` to the player GameObject in the test scene. Verify the project compiles and existing movement behavior is unchanged
+- [x] Phase 0: PlayerCompositionRoot stub
+  - [x] 1. Create folder `Runtime/Core/` under the project scripts root
+  - [x] 2. Create `PlayerCompositionRoot` MonoBehaviour in `Runtime/Core/` with namespace `SGL.Protocol.Runtime.Core`. Empty `Awake()` body, no fields
+  - [x] 3. Attach `PlayerCompositionRoot` to the player GameObject in the test scene. Verify the project compiles and existing movement behavior is unchanged
 
-- [ ] Phase 1: Migrate CharacterMover2D
-  - [ ] 4. In `CharacterMover2D`: add `private bool _initialized` field (default `false`)
-  - [ ] 5. In `CharacterMover2D`: add early return guard `if (!_initialized) return;` at the top of `FixedUpdate()`. If any other Unity lifecycle methods contain logic (e.g., `OnDrawGizmos`), add the guard there too only if they reference `_initialized`-dependent state. `OnDrawGizmos` for ground/ceiling check boxes may work without initialization — evaluate per method
-  - [ ] 6. In `CharacterMover2D`: add public method `Initialize(WalkingConfig walkingConfig, DodgeConfig dodgeConfig)` with empty body. Set `_initialized = true` at the end
-  - [ ] 7. In `CharacterMover2D`: move all logic from `Awake()` into `Initialize()` body, before the `_initialized = true` line. Replace references to the old `[SerializeField]` config fields with the `Initialize` parameters. Remove `Awake()` method (or leave empty body)
-  - [ ] 8. In `CharacterMover2D`: change `[SerializeField] private WalkingConfig` and `[SerializeField] private DodgeConfig` to plain private fields: `private WalkingConfig _walkingConfig;` and `private DodgeConfig _dodgeConfig;`. Assign them from `Initialize` parameters at the top of the method body. Update all internal references from the old field names to the new ones
-  - [ ] 9. In `PlayerCompositionRoot`: add `[Header("Movement")]`, `[SerializeField] private WalkingConfig WalkingConfig`, `[SerializeField] private DodgeConfig DodgeConfig`
-  - [ ] 10. In `PlayerCompositionRoot.Awake()`: add `var mover = GetComponent<CharacterMover2D>();` and `mover.Initialize(WalkingConfig, DodgeConfig);`
-  - [ ] 11. In Inspector: assign `WalkingConfig` and `DodgeConfig` asset references on `PlayerCompositionRoot` (they were lost when `[SerializeField]` was removed from `CharacterMover2D`)
-  - [ ] 12. Verify: character moves, jumps, dodges, drops through platforms identically to before. Config tweaking in Play Mode still works. No `[SerializeField]` config fields remain on `CharacterMover2D`
+- [x] Phase 1: Migrate CharacterMover2D
+  - [x] 4. In `CharacterMover2D`: add `private bool _initialized` field (default `false`)
+  - [x] 5. In `CharacterMover2D`: add early return guard `if (!_initialized) return;` at the top of `FixedUpdate()`. If any other Unity lifecycle methods contain logic (e.g., `OnDrawGizmos`), add the guard there too only if they reference `_initialized`-dependent state. `OnDrawGizmos` for ground/ceiling check boxes may work without initialization — evaluate per method
+  - [x] 6. In `CharacterMover2D`: add public method `Initialize(WalkingConfig walkingConfig, DodgeConfig dodgeConfig)` with empty body. Set `_initialized = true` at the end
+  - [x] 7. In `CharacterMover2D`: move all logic from `Awake()` into `Initialize()` body, before the `_initialized = true` line. Replace references to the old `[SerializeField]` config fields with the `Initialize` parameters. Remove `Awake()` method (or leave empty body)
+  - [x] 8. In `CharacterMover2D`: change `[SerializeField] private WalkingConfig` and `[SerializeField] private DodgeConfig` to plain private fields: `private WalkingConfig _walkingConfig;` and `private DodgeConfig _dodgeConfig;`. Assign them from `Initialize` parameters at the top of the method body. Update all internal references from the old field names to the new ones
+  - [x] 9. In `PlayerCompositionRoot`: add `[Header("Movement")]`, `[SerializeField] private WalkingConfig WalkingConfig`, `[SerializeField] private DodgeConfig DodgeConfig`
+  - [x] 10. In `PlayerCompositionRoot.Awake()`: add `var mover = GetComponent<CharacterMover2D>();` and `mover.Initialize(WalkingConfig, DodgeConfig);`
+  - [x] 11. In Inspector: assign `WalkingConfig` and `DodgeConfig` asset references on `PlayerCompositionRoot` (they were lost when `[SerializeField]` was removed from `CharacterMover2D`)
+  - [x] 12. Verify: character moves, jumps, dodges, drops through platforms identically to before. Config tweaking in Play Mode still works. No `[SerializeField]` config fields remain on `CharacterMover2D`
 
 - [ ] Phase 2: Migrate PlayerInputReader
   - [ ] 13. In `PlayerInputReader`: add `private bool _initialized` field (default `false`)

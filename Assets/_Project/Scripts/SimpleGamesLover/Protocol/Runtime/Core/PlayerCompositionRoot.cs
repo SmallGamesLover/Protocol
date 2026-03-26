@@ -1,4 +1,5 @@
 using UnityEngine;
+using SGL.Protocol.Runtime.Movement;
 
 namespace SGL.Protocol.Runtime.Core
 {
@@ -9,8 +10,14 @@ namespace SGL.Protocol.Runtime.Core
     /// </summary>
     public class PlayerCompositionRoot : MonoBehaviour
     {
+        [Header("Movement")]
+        [SerializeField] private WalkingConfig WalkingConfig;
+        [SerializeField] private DodgeConfig DodgeConfig;
+
         private void Awake()
         {
+            var mover = GetComponent<CharacterMover2D>();
+            mover.Initialize(WalkingConfig, DodgeConfig);
         }
     }
 }

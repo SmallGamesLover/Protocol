@@ -12,13 +12,6 @@ namespace SGL.Protocol.Runtime.Movement
     [RequireComponent(typeof(BoxCollider2D))]
     public class CharacterMover2D : MonoBehaviour
     {
-        [Header("Configuration")]
-        [Tooltip("Movement parameters: walk/run speeds, jump height, coyote time, etc.")]
-        [SerializeField] private WalkingConfig WalkingConfig;
-
-        [Tooltip("Dodge parameters: distance and speed.")]
-        [SerializeField] private DodgeConfig DodgeConfig;
-
         [Header("Ground Detection")]
         [Tooltip("Width and height of the overlap box used to detect ground contact.")]
         [SerializeField] private Vector2 GroundCheckSize = new Vector2(0.9f, 0.05f);
@@ -38,6 +31,10 @@ namespace SGL.Protocol.Runtime.Movement
 
         [Tooltip("Layers considered as ceiling surfaces.")]
         [SerializeField] private LayerMask CeilingLayerMask;
+
+        private WalkingConfig _walkingConfig;
+        private DodgeConfig _dodgeConfig;
+        private bool _initialized;
 
         private Rigidbody2D _rigidbody;
         private BoxCollider2D _boxCollider;
@@ -120,8 +117,15 @@ namespace SGL.Protocol.Runtime.Movement
 #endif
         }
 
-        private void Awake()
+        /// <summary>
+        /// Initializes the component with its dependencies.
+        /// Must be called by the Composition Root before any FixedUpdate runs.
+        /// </summary>
+        public void Initialize(WalkingConfig walkingConfig, DodgeConfig dodgeConfig)
         {
+            _walkingConfig = walkingConfig;
+            _dodgeConfig = dodgeConfig;
+
             _rigidbody = GetComponent<Rigidbody2D>();
             _boxCollider = GetComponent<BoxCollider2D>();
 
@@ -130,13 +134,15 @@ namespace SGL.Protocol.Runtime.Movement
             _contactFilter = new ContactFilter2D { useLayerMask = true, layerMask = GroundLayerMask };
             _collisionResolver = new CollisionSlideResolver2D(_rigidbody);
 
-            _walkingState = new WalkingState(this, WalkingConfig);
-            _dodgeState = new DodgeState(this, DodgeConfig);
+            _walkingState = new WalkingState(this, _walkingConfig);
+            _dodgeState = new DodgeState(this, _dodgeConfig);
 
             _topFsm = new StateMachine<IState>();
             _topFsm.AddTransition(_walkingState, _dodgeState, () => IsDodgeRequested);
             _topFsm.AddTransition(_dodgeState, _walkingState, () => _dodgeState.IsFinished);
             _topFsm.SetInitialState(_walkingState);
+
+            _initialized = true;
         }
 
         /// <summary>
@@ -193,6 +199,8 @@ namespace SGL.Protocol.Runtime.Movement
 
         private void FixedUpdate()
         {
+            if (!_initialized) return;
+
             IsGrounded = CheckGround();
             IsCeiling = CheckCeiling();
 

@@ -1244,8 +1244,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 506bc2a70336e2942957d82b3a9337f3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: SGL.Protocol.Runtime::SGL.Protocol.Runtime.Movement.CharacterMover2D
-  WalkingConfig: {fileID: 11400000, guid: 2e03b2bee536a6745b1fbba348ad6426, type: 2}
-  DodgeConfig: {fileID: 11400000, guid: 71f3f1559d62d4d48a283ba52380d1f6, type: 2}
   GroundCheckSize: {x: 0.9, y: 0.05}
   GroundCheckOffset: {x: 0, y: -0.8}
   GroundLayerMask:
@@ -1296,6 +1294,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0e390617d591dcc42ad351100f7344d3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: SGL.Protocol.Runtime::SGL.Protocol.Runtime.Core.PlayerCompositionRoot
+  WalkingConfig: {fileID: 11400000, guid: 2e03b2bee536a6745b1fbba348ad6426, type: 2}
+  DodgeConfig: {fileID: 11400000, guid: 71f3f1559d62d4d48a283ba52380d1f6, type: 2}
 --- !u!1 &2138574918
 GameObject:
   m_ObjectHideFlags: 0
