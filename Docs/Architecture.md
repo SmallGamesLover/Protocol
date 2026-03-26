@@ -11,6 +11,7 @@ Assets/_Project/Scripts/SimpleGamesLover/Protocol/
     Editor/          — Unity Editor tooling: custom inspectors, drawers, wizards; interacts with game logic
     Runtime/         — MonoBehaviours, states, configs; Unity API allowed
         Core/        — Composition Roots and cross-cutting infrastructure
+            PlayerCompositionRoot.cs
         Movement/
             States/
         Utilities/   — Runtime-only utility/extension classes (depend on UnityEngine)
@@ -36,13 +37,14 @@ When in doubt whether code belongs in `Runtime/` or `Shared/`: if it has no `usi
 - `ITickable` — `Shared/FSM/ITickable.cs` — per-frame update contract: `Tick(float deltaTime)`. Standalone, does NOT inherit `IState`. No deps.
 - `StateMachine<TState>` — `Shared/FSM/StateMachine.cs` — generic FSM. Registers transitions, evaluates them in order, calls `OnExit`/`OnEnter`. No Tick. Depends on: `IState`.
 - `Vector2Extensions` — `Runtime/Utilities/Vector2Extensions.cs` — extension `ProjectOnAxis(normal)`: projects a vector onto the surface tangent. Depends on: `UnityEngine`.
-- `CharacterMover2D` — `Runtime/Movement/CharacterMover2D.cs` — top-level movement MonoBehaviour. Owns top FSM, ground/ceiling checks, applies movement via resolver, manages one-way platform state, exposes input-agnostic public API. Depends on: `WalkingConfig`, `DodgeConfig`, `CollisionSlideResolver2D`, `StateMachine<IState>`, `WalkingState`, `DodgeState`.
+- `PlayerCompositionRoot` — `Runtime/Core/PlayerCompositionRoot.cs` — Composition Root for the player entity. Owns all `[SerializeField]` config references; wires dependencies to player components in `Awake()` via their `Initialize()` methods. Initialization order: `CharacterMover2D` → `PlayerInputReader` → `MovementDebugOverlay`. Depends on: `CharacterMover2D`, `PlayerInputReader`, `MovementDebugOverlay`, `WalkingConfig`, `DodgeConfig`.
+- `CharacterMover2D` — `Runtime/Movement/CharacterMover2D.cs` — top-level movement MonoBehaviour. Owns top FSM, ground/ceiling checks, applies movement via resolver, manages one-way platform state, exposes input-agnostic public API. Receives deps via `Initialize(WalkingConfig, DodgeConfig)`. Depends on: `WalkingConfig`, `DodgeConfig`, `CollisionSlideResolver2D`, `StateMachine<IState>`, `WalkingState`, `DodgeState`.
 - `WalkingConfig` — `Runtime/Movement/WalkingConfig.cs` — ScriptableObject with all movement parameters. Exposes computed properties (`Gravity`, `JumpVelocity`, `FallMultiplier`) and `HorizontalMoveParams` presets. Depends on: `HorizontalMoveParams`.
 - `DodgeConfig` — `Runtime/Movement/DodgeConfig.cs` — ScriptableObject with `DodgeDistance`, `DodgeSpeed`. Computed read-only `DodgeTime` for external systems (animation, UI). No code deps.
 - `HorizontalMoveParams` — `Runtime/Movement/HorizontalMoveParams.cs` — `readonly struct`. Encapsulates `MaxSpeed`, `Acceleration`, `Deceleration` and the shared `Apply(velX, input, dt)` formula. Used by all five sub-states. Depends on: `Mathf`.
 - `CollisionSlideResolver2D` — `Runtime/Movement/CollisionSlideResolver2D.cs` — recursive collide-and-slide. Accepts optional `shouldIgnore` predicate (Strategy Pattern) applied after the dot-product filter. Returns safe displacement. `SKIN_WIDTH = 0.015f`, `MAX_BOUNCES = 3`. Depends on: `Vector2Extensions`, `Rigidbody2D`.
-- `PlayerInputReader` — `Runtime/Movement/PlayerInputReader.cs` — reads `Keyboard.current` (New Input System, no `.inputactions` asset). Calls `CharacterMover2D` public API. The only file referencing `Keyboard`/`Mouse`. Depends on: `UnityEngine.InputSystem`, `CharacterMover2D`.
-- `MovementDebugOverlay` — `Runtime/Movement/MovementDebugOverlay.cs` — Editor-only OnGUI dashboard + velocity Gizmo for `CharacterMover2D`. All logic wrapped in `#if UNITY_EDITOR`; empty MonoBehaviour in builds (no overhead, no missing-script errors). F1 toggles both overlays at runtime. Depends on: `CharacterMover2D`, `WalkingConfig`, `UnityEngine.InputSystem` (Editor only).
+- `PlayerInputReader` — `Runtime/Movement/PlayerInputReader.cs` — reads `Keyboard.current` (New Input System, no `.inputactions` asset). Calls `CharacterMover2D` public API. The only file referencing `Keyboard`/`Mouse`. Receives `CharacterMover2D` via `Initialize(CharacterMover2D)`. Depends on: `UnityEngine.InputSystem`, `CharacterMover2D`.
+- `MovementDebugOverlay` — `Runtime/Movement/MovementDebugOverlay.cs` — Editor-only OnGUI dashboard + velocity Gizmo for `CharacterMover2D`. All logic wrapped in `#if UNITY_EDITOR`; empty MonoBehaviour in builds (no overhead, no missing-script errors). F1 toggles both overlays at runtime. Receives deps via `Initialize(CharacterMover2D, WalkingConfig)`. Depends on: `CharacterMover2D`, `WalkingConfig`, `UnityEngine.InputSystem` (Editor only).
 - `WalkingState` — `Runtime/Movement/States/WalkingState.cs` — top-level FSM state. Owns a second `StateMachine<IState>` for sub-states. `OnEnter` calls `ResolveSubState()`. Manages coyote timer start on edge walk-off. Depends on: `CharacterMover2D`, `WalkingConfig`, `StateMachine<IState>`.
 - `DodgeState` — `Runtime/Movement/States/DodgeState.cs` — top-level FSM state. Horizontal dodge with distance-based tracking. `OnEnter` zeroes vertical velocity, captures direction, consumes the dodge request. `IsFinished` signals the FSM to return to `WalkingState`. Depends on: `CharacterMover2D`, `DodgeConfig`.
 - `IdleSubState` — `Runtime/Movement/States/IdleSubState.cs` — no input, grounded. Decelerates to zero via `GroundWalkParams.Apply(v.x, 0f, dt)`. Depends on: `CharacterMover2D`, `WalkingConfig`.
@@ -211,6 +213,80 @@ Both jump and dodge use the same pattern: the input reader calls `Jump()`/`Dodge
 
 **Conditional compilation for debug tooling**
 `MovementDebugOverlay` wraps all logic in `#if UNITY_EDITOR`. The class shell exists in all builds to avoid missing-script errors; zero runtime overhead in player builds.
+
+**Composition Root (Dependency Wiring)**
+`PlayerCompositionRoot` centralizes all dependency wiring for the player entity. Components receive dependencies via `Initialize()` instead of self-resolving in `Awake()`/`Start()`. Configs (`WalkingConfig`, `DodgeConfig`) are `[SerializeField]` on the Composition Root, not on individual components. Initialization order is explicit and deterministic. Same pattern will apply to enemies (`EnemyCompositionRoot`) and scene-level systems (`SceneCompositionRoot`).
+
+---
+
+## Composition Root
+
+Centralized dependency wiring for each entity. Instead of components resolving their own dependencies in `Awake()`/`Start()`, a single Composition Root script creates the dependency graph in a deterministic order.
+
+### Scope — Two Levels
+
+| Level | Script | Initializes | Exists |
+|---|---|---|---|
+| **Entity** | `PlayerCompositionRoot` | Components on the player GameObject | Prototype |
+| **Scene** | `SceneCompositionRoot` | Global scene systems (WaveManager, Economy) | When needed |
+| **Application** | `ApplicationCompositionRoot` | Cross-scene services (Save, Audio, Settings) | When multi-scene |
+
+For the prototype, only the Entity level is active. Scene and Application levels are added when corresponding systems appear.
+
+### SerializeField vs Initialize Rule
+
+**Initialize parameters** — dependencies. Things the component cannot function without, and things that may differ by context. ScriptableObject configs (`WalkingConfig`, `DodgeConfig`) belong here: different instances for player and enemies. References to other components (`CharacterMover2D` for `PlayerInputReader`) belong here.
+
+**SerializeField on the component** — instance configuration. Geometry of physics checks (`GroundCheckSize`, `GroundCheckOffset`), LayerMasks, visual debug settings (`VelocityGizmoScale`). These are tuned per-GameObject in Inspector and do not depend on external context.
+
+Rule of thumb: **"who do I depend on" → Initialize. "How am I configured" → SerializeField.**
+
+### GetComponent for Same-GameObject Components
+
+`Rigidbody2D`, `BoxCollider2D`, and other components co-located on the same GameObject are resolved via `GetComponent` inside `Initialize()`, not passed as parameters. They are internal implementation details — the Composition Root should not know that `CharacterMover2D` uses a `Rigidbody2D` internally.
+
+### Initialization Guard
+
+Every component with an `Initialize()` method has a `private bool _initialized` field. Unity lifecycle methods (`FixedUpdate`, `Update`, `OnGUI`) early-return if `!_initialized`. This prevents `NullReferenceException` if a component is added to a GameObject without being wired through a Composition Root.
+
+```csharp
+private bool _initialized;
+
+public void Initialize(WalkingConfig walkingConfig, DodgeConfig dodgeConfig)
+{
+    // ... setup ...
+    _initialized = true;
+}
+
+private void FixedUpdate()
+{
+    if (!_initialized) return;
+    // ...
+}
+```
+
+### Initialization Order
+
+Defined by the dependency graph, read top-to-bottom in `PlayerCompositionRoot.Awake()`:
+
+```csharp
+private void Awake()
+{
+    var mover = GetComponent<CharacterMover2D>();
+    var inputReader = GetComponent<PlayerInputReader>();
+    var debugOverlay = GetComponent<MovementDebugOverlay>();
+
+    mover.Initialize(WalkingConfig, DodgeConfig);       // no deps on other components
+    inputReader.Initialize(mover);                       // depends on mover
+    debugOverlay.Initialize(mover);                      // depends on mover
+}
+```
+
+Adding a new system: insert the `Initialize` call at the correct position in the dependency chain. If `ShootingController` depends on `WeaponHolder` and `CharacterMover2D`, both must be initialized before it.
+
+### Migration Path to DI Container
+
+The manual Composition Root is exactly what a DI container automates. `Initialize()` methods map directly to `[Inject]` methods in VContainer. `PlayerCompositionRoot` maps to `LifetimeScope`. Components themselves do not change during migration — only the wiring mechanism is replaced.
 
 ---
 

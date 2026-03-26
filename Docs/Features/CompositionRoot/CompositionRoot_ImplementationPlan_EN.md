@@ -232,6 +232,8 @@ private void Awake()
 
 - `ShowOverlay`, `ShowVelocityGizmo`, `VelocityGizmoScale` — visual tuning, stays in Inspector
 
+`WalkingConfig` does **not** stay as `[SerializeField]` on the component. It is a ScriptableObject config dependency — same category as `WalkingConfig`/`DodgeConfig` on `CharacterMover2D` in Phase 1. Move it to `Initialize(CharacterMover2D mover, WalkingConfig walkingConfig)` and assign from the parameter inside `#if UNITY_EDITOR`. `PlayerCompositionRoot` already holds the `WalkingConfig` reference from Phase 1 and passes it through.
+
 ### 3.6 Verification
 - Debug overlay displays FSM state, velocity, timers, flags — identical to before
 - F1 toggles both overlay and gizmo
