@@ -32,13 +32,13 @@
   - [x] 21. In `MovementDebugOverlay`: add `!_initialized` to early return guards in `Update()`, `OnGUI()`, and `OnDrawGizmos()` method bodies (inside existing `#if UNITY_EDITOR` blocks)
   - [x] 22. In `MovementDebugOverlay`: remove the existing mechanism that provides the `CharacterMover2D` reference — whether `[SerializeField]` or `GetComponent` in `Awake()`. Remove `Awake()` if it becomes empty
   - [x] 23. In `PlayerCompositionRoot.Awake()`: add `var debugOverlay = GetComponent<MovementDebugOverlay>();` and `debugOverlay.Initialize(mover, WalkingConfig);` after the `inputReader.Initialize(...)` call. In `MovementDebugOverlay`: remove `[SerializeField] private WalkingConfig WalkingConfig` field and add `WalkingConfig walkingConfig` parameter to `Initialize()`. Move `_walkingConfig` field declaration inside `#if UNITY_EDITOR`. Assign from parameter inside the `#if UNITY_EDITOR` block. Update `RebuildOverlayLines()` to use `_walkingConfig` instead of the old field
-  - [ ] 24. Verify: debug overlay displays all data correctly, F1 toggle works, velocity gizmo visible in Scene View. `MovementDebugOverlay` has no `[SerializeField]` or `GetComponent` reference to `CharacterMover2D`
+  - [x] 24. Verify: debug overlay displays all data correctly, F1 toggle works, velocity gizmo visible in Scene View. `MovementDebugOverlay` has no `[SerializeField]` or `GetComponent` reference to `CharacterMover2D` or `WalkingConfig`.
 
-- [ ] Phase 4: Documentation
-  - [ ] 25. Add "Composition Root" section to `Architecture.md` — pattern description, scope, SerializeField vs Initialize rule, initialization guard, folder location. Place between "Active Patterns" and "Open Decisions / Planned Work"
-  - [ ] 26. Add "Composition Root (Dependency Wiring)" entry to the "Active Patterns" section in `Architecture.md`
-  - [ ] 27. Update "Folder & Assembly Structure" in `Architecture.md`: add `Runtime/Core/` with `PlayerCompositionRoot.cs`
-  - [ ] 28. Update "Class Map" in `Architecture.md`: add `PlayerCompositionRoot` entry, update `CharacterMover2D`, `PlayerInputReader`, `MovementDebugOverlay` entries to reflect `Initialize()` pattern
+- [x] Phase 4: Documentation
+  - [x] 25. Add "Composition Root" section to `Architecture.md` — pattern description, scope, SerializeField vs Initialize rule, initialization guard, folder location. Place between "Active Patterns" and "Open Decisions / Planned Work"
+  - [x] 26. Add "Composition Root (Dependency Wiring)" entry to the "Active Patterns" section in `Architecture.md`
+  - [x] 27. Update "Folder & Assembly Structure" in `Architecture.md`: add `Runtime/Core/` with `PlayerCompositionRoot.cs`
+  - [x] 28. Update "Class Map" in `Architecture.md`: add `PlayerCompositionRoot` entry, update `CharacterMover2D`, `PlayerInputReader`, `MovementDebugOverlay` entries to reflect `Initialize()` pattern
 
 - [ ] Phase 5: Full regression verification
   - [ ] 29. Walk left/right with acceleration and deceleration, run with Shift
