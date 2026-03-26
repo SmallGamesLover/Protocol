@@ -12,3 +12,5 @@ Current snapshot: @Architecture.md
 ## All Features
 
 **CharacterMover2D** — @Docs/Features/CharacterMover2D (Completed)
+
+**CompositionRoot** - @Docs/Features/CompositionRoot (Planned)

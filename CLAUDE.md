@@ -38,9 +38,43 @@ Do not hardcode namespaces in task descriptions — derive them from the file's 
 ## Unity Conventions
 - IMPORTANT: Never use Find(), FindObjectOfType() in Update()
 - When private field has [SerializeField] you should use PascalCase
-- Prefer dependency injection via [SerializeField] or Initialize() methods
+- Dependency wiring: see "Composition Root" section below
 - ScriptableObjects for shared data (stats, config)
 - Use UnityEvents sparingly — prefer C# events/Actions
+
+## Composition Root
+
+Components do not initialize themselves. All dependency wiring happens in Composition Root scripts.
+
+### Adding a New Component with Dependencies
+
+1. Add `public void Initialize(...)` method that receives all dependencies as parameters.
+2. Add `private bool _initialized` field. Set `true` at the end of `Initialize()`.
+3. Add `if (!_initialized) return;` guard at the top of every Unity lifecycle method (`Update`, `FixedUpdate`, `OnGUI`, etc.).
+4. Do NOT add `Awake()` or `Start()` with initialization logic. If the component needs no dependencies, it does not need `Initialize()` or a Composition Root entry.
+5. Register the component in the appropriate Composition Root (`PlayerCompositionRoot`, `SceneCompositionRoot`). Call `Initialize()` in the correct position based on the dependency graph.
+
+### What Goes Where
+
+- **Initialize parameters:** ScriptableObject configs (`WalkingConfig`, `DodgeConfig`), references to other components (`CharacterMover2D`). These are dependencies — things that differ by context or that the component cannot function without.
+- **[SerializeField] on the component:** physics check geometry (`GroundCheckSize`, `GroundCheckOffset`), LayerMasks, visual/debug settings (`VelocityGizmoScale`). These are instance configuration — tuned per-GameObject in Inspector.
+- **GetComponent inside Initialize:** `Rigidbody2D`, `BoxCollider2D`, and other components on the same GameObject. These are internal implementation details — the Composition Root does not pass them.
+- **[SerializeField] on Composition Root:** config asset references that the root distributes to components via `Initialize()`.
+
+### Config Ownership
+
+ScriptableObject configs are `[SerializeField]` on the Composition Root, NOT on the components that use them. The Composition Root is the single point that knows which config goes where.
+
+### Initialization Order
+
+In `PlayerCompositionRoot.Awake()`, `Initialize()` calls are ordered by dependency graph — top to bottom. A component is never initialized before its dependencies. When adding a new component, insert its `Initialize()` call after all components it depends on.
+
+### Do NOT
+
+- Do not use `Awake()` or `Start()` for dependency resolution (`GetComponent` for cross-component refs, `Find`, `FindObjectOfType`).
+- Do not add `[SerializeField]` config fields to components that receive configs via `Initialize()`.
+- Do not pass `Rigidbody2D` or `BoxCollider2D` through `Initialize()` — use `GetComponent` inside the method.
+- Do not use Script Execution Order to control initialization between components.
 
 ## What Claude Should NOT Do
 - Do not create, modify, delete, or overwrite any non-code assets: scenes (`.unity`), prefabs (`.prefab`), ScriptableObject instances (`.asset`), sprites/textures, models, animations, audio, materials, or shader files

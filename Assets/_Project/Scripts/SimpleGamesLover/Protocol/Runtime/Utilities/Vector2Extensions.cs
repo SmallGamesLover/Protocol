@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace SGL.Protocol.Shared
+namespace SGL.Protocol.Runtime.Utilities
 {
     /// <summary>
     /// Extension methods for <see cref="UnityEngine.Vector2"/>.

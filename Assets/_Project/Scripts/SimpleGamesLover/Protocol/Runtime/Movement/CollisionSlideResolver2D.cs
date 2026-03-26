@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
-using SGL.Protocol.Shared;
+using SGL.Protocol.Runtime.Utilities;
 
 namespace SGL.Protocol.Runtime.Movement
 {

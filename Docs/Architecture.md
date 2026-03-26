@@ -8,11 +8,14 @@
 
 ```
 Assets/_Project/Scripts/SimpleGamesLover/Protocol/
-    Shared/          — Scripts that are usable in Runtime and Editor assemblies
-        FSM/         — generic FSM infrastructure
+    Editor/          — Unity Editor tooling: custom inspectors, drawers, wizards; interacts with game logic
     Runtime/         — MonoBehaviours, states, configs; Unity API allowed
+        Core/        — Composition Roots and cross-cutting infrastructure
         Movement/
             States/
+        Utilities/   — Runtime-only utility/extension classes (depend on UnityEngine)
+    Shared/          — Scripts that are usable in Runtime and Editor assemblies without UnityEngine dependency
+        FSM/         — generic FSM infrastructure
     Tests/           — unit/integration tests, mirrors covered assembly
         Shared/
 ```
@@ -23,8 +26,7 @@ Examples:
 - `Scripts/.../Runtime/Movement/CharacterMover2D.cs` → `SGL.Protocol.Runtime.Movement`
 - `Scripts/.../Runtime/Movement/States/WalkingState.cs` → `SGL.Protocol.Runtime.Movement.States`
 
-If a file could be used in Runtime AND Editor → it goes in `Shared/`, not `Runtime/`.
-Example: `Vector2Extensions.cs`.
+When in doubt whether code belongs in `Runtime/` or `Shared/`: if it has no `using UnityEngine` and could be used in an Editor script, it goes in `Shared/`
 
 ---
 
@@ -33,7 +35,7 @@ Example: `Vector2Extensions.cs`.
 - `IState` — `Shared/FSM/IState.cs` — lifecycle contract: `OnEnter()`, `OnExit()`. No deps.
 - `ITickable` — `Shared/FSM/ITickable.cs` — per-frame update contract: `Tick(float deltaTime)`. Standalone, does NOT inherit `IState`. No deps.
 - `StateMachine<TState>` — `Shared/FSM/StateMachine.cs` — generic FSM. Registers transitions, evaluates them in order, calls `OnExit`/`OnEnter`. No Tick. Depends on: `IState`.
-- `Vector2Extensions` — `Shared/Vector2Extensions.cs` — extension `ProjectOnAxis(normal)`: projects a vector onto the surface tangent. Depends on: `UnityEngine`.
+- `Vector2Extensions` — `Runtime/Utilities/Vector2Extensions.cs` — extension `ProjectOnAxis(normal)`: projects a vector onto the surface tangent. Depends on: `UnityEngine`.
 - `CharacterMover2D` — `Runtime/Movement/CharacterMover2D.cs` — top-level movement MonoBehaviour. Owns top FSM, ground/ceiling checks, applies movement via resolver, manages one-way platform state, exposes input-agnostic public API. Depends on: `WalkingConfig`, `DodgeConfig`, `CollisionSlideResolver2D`, `StateMachine<IState>`, `WalkingState`, `DodgeState`.
 - `WalkingConfig` — `Runtime/Movement/WalkingConfig.cs` — ScriptableObject with all movement parameters. Exposes computed properties (`Gravity`, `JumpVelocity`, `FallMultiplier`) and `HorizontalMoveParams` presets. Depends on: `HorizontalMoveParams`.
 - `DodgeConfig` — `Runtime/Movement/DodgeConfig.cs` — ScriptableObject with `DodgeDistance`, `DodgeSpeed`. Computed read-only `DodgeTime` for external systems (animation, UI). No code deps.
