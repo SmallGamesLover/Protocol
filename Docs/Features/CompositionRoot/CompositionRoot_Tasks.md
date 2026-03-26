@@ -40,13 +40,13 @@
   - [x] 27. Update "Folder & Assembly Structure" in `Architecture.md`: add `Runtime/Core/` with `PlayerCompositionRoot.cs`
   - [x] 28. Update "Class Map" in `Architecture.md`: add `PlayerCompositionRoot` entry, update `CharacterMover2D`, `PlayerInputReader`, `MovementDebugOverlay` entries to reflect `Initialize()` pattern
 
-- [ ] Phase 5: Full regression verification
-  - [ ] 29. Walk left/right with acceleration and deceleration, run with Shift
-  - [ ] 30. Jump: full height, low jump (short press), coyote time off edge, jump buffer on landing
-  - [ ] 31. Fall: asymmetric rise/fall, `MaxFallSpeed` cap, air control mid-air
-  - [ ] 32. Dodge: from Idle, Walk, Run, Jump, Fall. Into wall. Off platform edge
-  - [ ] 33. One-way platforms: jump through from below, land from above, drop-through on S, cascade through stacked platforms, drop-through on solid ground does nothing
-  - [ ] 34. Ceiling check: stops ascent, does not trigger on one-way platforms from below
-  - [ ] 35. Debug overlay: FSM state, velocity, timers, flags all display. F1 toggles both. Velocity gizmo matches movement
-  - [ ] 36. Play Mode config tweaking: change ScriptableObject values during play — applies immediately
-  - [ ] 37. Code audit: `CharacterMover2D` has no `Awake()`/`Start()` with logic. `PlayerInputReader` has no self-resolved mover reference. `MovementDebugOverlay` has no self-resolved mover reference. `PlayerCompositionRoot.Awake()` is the single initialization entry point
+- [x] Phase 5: Full regression verification
+  - [x] 29. Walk left/right with acceleration and deceleration, run with Shift
+  - [x] 30. Jump: full height, low jump (short press), coyote time off edge, jump buffer on landing
+  - [x] 31. Fall: asymmetric rise/fall, `MaxFallSpeed` cap, air control mid-air
+  - [x] 32. Dodge: from Idle, Walk, Run, Jump, Fall. Into wall. Off platform edge
+  - [x] 33. One-way platforms: jump through from below, land from above, drop-through on S, cascade through stacked platforms, drop-through on solid ground does nothing
+  - [x] 34. Ceiling check: stops ascent, does not trigger on one-way platforms from below
+  - [x] 35. Debug overlay: FSM state, velocity, timers, flags all display. F1 toggles both. Velocity gizmo matches movement
+  - [x] 36. Play Mode config tweaking: change ScriptableObject values during play — applies immediately
+  - [x] 37. Code audit: `CharacterMover2D` has no `Awake()`/`Start()` with logic. `PlayerInputReader` has no self-resolved mover reference. `MovementDebugOverlay` has no self-resolved mover reference. `PlayerCompositionRoot.Awake()` is the single initialization entry point
