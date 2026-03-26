@@ -4,13 +4,13 @@
 Current snapshot: @Architecture.md
 
 ## Active Feature
-**Empty**
-- GDD: 
-- Plan: 
-- Tasks: 
+**CompositionRoot**
+- GDD:
+- Plan: @Docs/Features/CompositionRoot/CompositionRoot_ImplementationPlan_EN.md
+- Tasks: @Docs/Features/CompositionRoot/CompositionRoot_Tasks.md
 
 ## All Features
 
 **CharacterMover2D** — @Docs/Features/CharacterMover2D (Completed)
 
-**CompositionRoot** - @Docs/Features/CompositionRoot (Planned)
+**CompositionRoot** - @Docs/Features/CompositionRoot (Active)
