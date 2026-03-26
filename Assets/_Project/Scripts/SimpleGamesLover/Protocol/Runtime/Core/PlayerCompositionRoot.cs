@@ -8,6 +8,8 @@ namespace SGL.Protocol.Runtime.Core
     /// Owns all serialized config references and wires dependencies
     /// to player components via their Initialize() methods.
     /// </summary>
+    [RequireComponent(typeof(CharacterMover2D))]
+    [RequireComponent(typeof(PlayerInputReader))]
     public class PlayerCompositionRoot : MonoBehaviour
     {
         [Header("Movement")]
@@ -18,6 +20,9 @@ namespace SGL.Protocol.Runtime.Core
         {
             var mover = GetComponent<CharacterMover2D>();
             mover.Initialize(WalkingConfig, DodgeConfig);
+
+            var inputReader = GetComponent<PlayerInputReader>();
+            inputReader.Initialize(mover);
         }
     }
 }

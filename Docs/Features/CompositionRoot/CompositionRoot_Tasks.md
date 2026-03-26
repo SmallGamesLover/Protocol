@@ -19,11 +19,11 @@
   - [x] 12. Verify: character moves, jumps, dodges, drops through platforms identically to before. Config tweaking in Play Mode still works. No `[SerializeField]` config fields remain on `CharacterMover2D`
 
 - [ ] Phase 2: Migrate PlayerInputReader
-  - [ ] 13. In `PlayerInputReader`: add `private bool _initialized` field (default `false`)
-  - [ ] 14. In `PlayerInputReader`: add early return guard `if (!_initialized) return;` at the top of `Update()`
-  - [ ] 15. In `PlayerInputReader`: add public method `Initialize(CharacterMover2D mover)`. Store in `private CharacterMover2D _mover;`. Set `_initialized = true` at the end
-  - [ ] 16. In `PlayerInputReader`: remove the existing mechanism that provides the `CharacterMover2D` reference — whether `[SerializeField]`, `GetComponent` in `Awake()`, or lookup in `Start()`. Remove `Awake()`/`Start()` if they become empty. All references to the mover now use the `_mover` field set by `Initialize`
-  - [ ] 17. In `PlayerCompositionRoot.Awake()`: add `var inputReader = GetComponent<PlayerInputReader>();` and `inputReader.Initialize(mover);` after the `mover.Initialize(...)` call
+  - [x] 13. In `PlayerInputReader`: add `private bool _initialized` field (default `false`)
+  - [x] 14. In `PlayerInputReader`: add early return guard `if (!_initialized) return;` at the top of `Update()`
+  - [x] 15. In `PlayerInputReader`: add public method `Initialize(CharacterMover2D mover)`. Store in `private CharacterMover2D _mover;`. Set `_initialized = true` at the end
+  - [x] 16. In `PlayerInputReader`: remove the existing mechanism that provides the `CharacterMover2D` reference — whether `[SerializeField]`, `GetComponent` in `Awake()`, or lookup in `Start()`. Remove `Awake()`/`Start()` if they become empty. All references to the mover now use the `_mover` field set by `Initialize`
+  - [x] 17. In `PlayerCompositionRoot.Awake()`: add `var inputReader = GetComponent<PlayerInputReader>();` and `inputReader.Initialize(mover);` after the `mover.Initialize(...)` call
   - [ ] 18. Verify: A/D movement, Space jump, Shift dodge, S drop-through all work. `PlayerInputReader` has no `[SerializeField]` or `GetComponent` reference to `CharacterMover2D`
 
 - [ ] Phase 3: Migrate MovementDebugOverlay

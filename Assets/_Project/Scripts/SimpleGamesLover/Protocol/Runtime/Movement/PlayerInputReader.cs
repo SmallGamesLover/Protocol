@@ -11,14 +11,21 @@ namespace SGL.Protocol.Runtime.Movement
     public class PlayerInputReader : MonoBehaviour
     {
         private CharacterMover2D _mover;
+        private bool _initialized;
 
-        private void Start()
+        /// <summary>
+        /// Wires the mover dependency. Called by the Composition Root.
+        /// </summary>
+        /// <param name="mover">The CharacterMover2D this reader will drive.</param>
+        public void Initialize(CharacterMover2D mover)
         {
-            _mover = GetComponent<CharacterMover2D>();
+            _mover = mover;
+            _initialized = true;
         }
 
         private void Update()
         {
+            if (!_initialized) return;
             Keyboard keyboard = Keyboard.current;
             if (keyboard == null) return;
 
