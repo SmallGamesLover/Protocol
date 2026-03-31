@@ -13,4 +13,6 @@ Current snapshot: @Architecture.md
 
 **CharacterMover2D** — @Docs/Features/CharacterMover2D (Completed)
 
-**CompositionRoot** - @Docs/Features/CompositionRoot (Active)
+**CompositionRoot** - @Docs/Features/CompositionRoot (Completed)
+
+**ShootingAndAiming** - @Docs/Features/ShootingAndAiming (Planned)
