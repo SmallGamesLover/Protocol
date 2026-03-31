@@ -96,3 +96,6 @@ desktop.ini
 .idea/
 *.suo
 *.user
+
+# ----- User exclusive files -----
+Docs/**/Reference/
